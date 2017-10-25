@@ -101,11 +101,22 @@ void sigmoid_activation(vec v, vec result)
 {
 	uint64 index = 0;
 	uint64 size = min(v.size, result.size);
+	vec one = vecones_asm(size);
+
+	veccopy_asm(&v, &result);
+	scalevec_asm(-1.f, &result, &result);
+	expvec_asm(&result, &result);
+	addvec_asm(&result, &one, &result);
+	divvec_asm(&one, &result, &result);
+	vecfree_asm(&one);
+	/*
 	while (index < size)
 	{
 		result.data[index] = 1.f / (1.f + expf(-v.data[index]));
 		index++;
 	}
+	*/
+
 }
 
 void transfer(mlp* net, uint64 l, int bActivate)
@@ -145,12 +156,28 @@ void derivative_sigmoid_activation(vec v, vec result)
 {
 	uint64 index = 0;
 	uint64 size = min(v.size, result.size);
+	
+	vec one = vecones_asm(size);
+
+	veccopy_asm(&v, &result);
+	scalevec_asm(-1.f, &result, &result);
+	expvec_asm(&result, &result);
+	addvec_asm(&result, &one, &result);
+	divvec_asm(&one, &result, &result);
+
+	subvec_asm(&one, &result, &one);
+
+	mulvec_asm(&one, &result, &result);
+
+	vecfree_asm(&one);
+	/*
 	while (index < size)
 	{
 		float sigma = 1.f / (1.f + expf(-v.data[index]));
 		result.data[index] = sigma * (1.f - sigma);
 		index++;
 	}
+	*/
 }
 
 void bwd(mlp* net, vec output)
