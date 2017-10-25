@@ -111,7 +111,23 @@
     </Link>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClCompile Include="Main.cpp" />
+    <ClCompile Include="AssemblyMathematicsLibrary\asmclib.c" />
+    <ClCompile Include="Main.c" />
+    <ClCompile Include="mlpbackup.cpp" />
+    <ClCompile Include="ProceduralMathematicsLibrary\procmth.c" />
+    <ClCompile Include="ProceduralMathematicsLibrary\procmthutils.c" />
+    <ClCompile Include="ProceduralMultilayerPerceptron\procmlp.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AssemblyMathematicsLibrary\asmclib.h" />
+    <ClInclude Include="AssemblyMathematicsLibrary\asmmth.h" />
+    <ClInclude Include="ProceduralMathematicsLibrary\procmth.h" />
+    <ClInclude Include="ProceduralMathematicsLibrary\procmthutils.h" />
+    <ClInclude Include="ProceduralMultilayerPerceptron\procmlp.h" />
+    <ClInclude Include="ProceduralMultilayerPerceptron\procmlptests.h" />
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="AssemblyMathematicsLibrary\asmmth.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

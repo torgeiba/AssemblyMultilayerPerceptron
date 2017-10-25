@@ -13,10 +13,59 @@
       <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
       <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
     </Filter>
+    <Filter Include="AssemblyMathematicsLibrary">
+      <UniqueIdentifier>{34190b06-7999-462a-805e-ae3d27e685eb}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ProceduralMathematicsLibrary">
+      <UniqueIdentifier>{fb23b539-458b-4616-8a40-d4fd909946f1}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="ProceduralMultilayerPerceptron">
+      <UniqueIdentifier>{00f8afb1-0582-4b65-8b56-11b5afacdfb8}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="Main.cpp">
+    <ClCompile Include="AssemblyMathematicsLibrary\asmclib.c">
+      <Filter>AssemblyMathematicsLibrary</Filter>
+    </ClCompile>
+    <ClCompile Include="ProceduralMultilayerPerceptron\procmlp.c">
+      <Filter>ProceduralMultilayerPerceptron</Filter>
+    </ClCompile>
+    <ClCompile Include="ProceduralMathematicsLibrary\procmth.c">
+      <Filter>ProceduralMathematicsLibrary</Filter>
+    </ClCompile>
+    <ClCompile Include="ProceduralMathematicsLibrary\procmthutils.c">
+      <Filter>ProceduralMathematicsLibrary</Filter>
+    </ClCompile>
+    <ClCompile Include="Main.c">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="mlpbackup.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="AssemblyMathematicsLibrary\asmmth.h">
+      <Filter>AssemblyMathematicsLibrary</Filter>
+    </ClInclude>
+    <ClInclude Include="AssemblyMathematicsLibrary\asmclib.h">
+      <Filter>AssemblyMathematicsLibrary</Filter>
+    </ClInclude>
+    <ClInclude Include="ProceduralMultilayerPerceptron\procmlp.h">
+      <Filter>ProceduralMultilayerPerceptron</Filter>
+    </ClInclude>
+    <ClInclude Include="ProceduralMultilayerPerceptron\procmlptests.h">
+      <Filter>ProceduralMultilayerPerceptron</Filter>
+    </ClInclude>
+    <ClInclude Include="ProceduralMathematicsLibrary\procmth.h">
+      <Filter>ProceduralMathematicsLibrary</Filter>
+    </ClInclude>
+    <ClInclude Include="ProceduralMathematicsLibrary\procmthutils.h">
+      <Filter>ProceduralMathematicsLibrary</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <MASM Include="AssemblyMathematicsLibrary\asmmth.asm">
+      <Filter>AssemblyMathematicsLibrary</Filter>
+    </MASM>
   </ItemGroup>
 </Project>
