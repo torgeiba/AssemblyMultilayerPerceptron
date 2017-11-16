@@ -20,7 +20,7 @@
   </ItemGroup>
   <PropertyGroup Label="Globals">
     <ProjectGuid>{4080A5DB-E1C0-497E-AB62-462B60F17ECE}</ProjectGuid>
-    <RootNamespace>AssemblyMulilayerPerceptron</RootNamespace>
+    <RootNamespace>AssemblyMultilayerPerceptron</RootNamespace>
     <WindowsTargetPlatformVersion>8.1</WindowsTargetPlatformVersion>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
@@ -121,6 +121,7 @@
   <ItemGroup>
     <ClInclude Include="AssemblyMathematicsLibrary\asmclib.h" />
     <ClInclude Include="AssemblyMathematicsLibrary\asmmth.h" />
+    <ClInclude Include="AssemblyMultilayerPerceptron\asmmlp.h" />
     <ClInclude Include="ProceduralMathematicsLibrary\procmth.h" />
     <ClInclude Include="ProceduralMathematicsLibrary\procmthutils.h" />
     <ClInclude Include="ProceduralMultilayerPerceptron\procmlp.h" />
@@ -128,6 +129,7 @@
   </ItemGroup>
   <ItemGroup>
     <MASM Include="AssemblyMathematicsLibrary\asmmth.asm" />
+    <MASM Include="AssemblyMultilayerPerceptron\asmmlp.asm" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

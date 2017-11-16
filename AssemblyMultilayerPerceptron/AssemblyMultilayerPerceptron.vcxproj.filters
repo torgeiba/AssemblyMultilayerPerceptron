@@ -22,6 +22,9 @@
     <Filter Include="ProceduralMultilayerPerceptron">
       <UniqueIdentifier>{00f8afb1-0582-4b65-8b56-11b5afacdfb8}</UniqueIdentifier>
     </Filter>
+    <Filter Include="AssemblyMultilayerPerceptron">
+      <UniqueIdentifier>{5ea29678-c67b-4a7e-9e5c-8cc3ce3c4c61}</UniqueIdentifier>
+    </Filter>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="AssemblyMathematicsLibrary\asmclib.c">
@@ -62,10 +65,16 @@
     <ClInclude Include="ProceduralMathematicsLibrary\procmthutils.h">
       <Filter>ProceduralMathematicsLibrary</Filter>
     </ClInclude>
+    <ClInclude Include="AssemblyMultilayerPerceptron\asmmlp.h">
+      <Filter>AssemblyMultilayerPerceptron</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <MASM Include="AssemblyMathematicsLibrary\asmmth.asm">
       <Filter>AssemblyMathematicsLibrary</Filter>
+    </MASM>
+    <MASM Include="AssemblyMultilayerPerceptron\asmmlp.asm">
+      <Filter>AssemblyMultilayerPerceptron</Filter>
     </MASM>
   </ItemGroup>
 </Project>
