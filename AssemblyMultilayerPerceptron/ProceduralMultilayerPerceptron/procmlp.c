@@ -5,6 +5,8 @@
 
 #include "../AssemblyMathematicsLibrary/asmmth.h"
 
+#include "../AssemblyMultilayerPerceptron/asmmlp.h"
+
 #include "stdlib.h"
 #include "stdio.h"
 #include "math.h"
@@ -305,7 +307,7 @@ void printerrors(mlp* net, mat inputs, mat outputs) {
 	{
 		input.data = inputs.data[i];
 		fwd(net, input);
-		float error = fabs(net->layers[net->numlayers - 1].data[0] - outputs.data[i][0]);
+		float error = (float)fabs(net->layers[net->numlayers - 1].data[0] - outputs.data[i][0]);
 		TotalError += error;
 		if (i == 0 || error < MaxError) MaxError = error;
 		i++;

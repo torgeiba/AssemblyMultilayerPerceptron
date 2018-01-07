@@ -39,7 +39,7 @@ typedef struct mat mat;
 * @param
 * @return
 */
-extern vec vecalloc_asm(uint64 size); // Completed
+extern vec vecalloc_asm(/* result pointer (hidden),*/ uint64 size); // Completed
 extern void vecfree_asm(vec* u); // Completed
 
 /**
@@ -47,7 +47,7 @@ extern void vecfree_asm(vec* u); // Completed
 * @param
 * @return
 */
-extern mat matalloc_asm(uint64 rows, uint64 cols); // Completed
+extern mat matalloc_asm(/* result pointer (hidden),*/ uint64 rows, uint64 cols); // Completed
 extern void matfree_asm(mat* m); // Completed
 
 /**
@@ -55,39 +55,39 @@ extern void matfree_asm(mat* m); // Completed
 * @param
 * @return
 */
-extern vec veczeros_asm(uint64 size); // Completed
+extern vec veczeros_asm(/* result pointer (hidden),*/ uint64 size); // Completed
 
 /**
 * Make one-initialized array of given size
 * @param
 * @return
 */
-extern vec vecones_asm(uint64 size); // Completed
+extern vec vecones_asm(/* result pointer (hidden),*/ uint64 size); // Completed
 
 /**
 * Make zero-initialized 2D-array
 * @param
 * @return
 */
-extern mat matzeros_asm(uint64 rows, uint64 cols); // Completed
+extern mat matzeros_asm(/* result pointer (hidden),*/ uint64 rows, uint64 cols); // Completed
 
 /**
 * Make one-initialized 2D-array
 * @param
 * @return
 */
-extern mat matones_asm(uint64 rows, uint64 cols); // Completed
+extern mat matones_asm(/* result pointer (hidden),*/ uint64 rows, uint64 cols); // Completed
 
 /**
 * Make idendity-initialized 2D-array
 * @param
 * @return
 */
-extern mat matidentity_asm(uint64 rows, uint64 cols); // Completed
+extern mat matidentity_asm(/* result pointer (hidden),*/ uint64 rows, uint64 cols); // Completed
 
-extern vec vecrand_asm(uint64 size); // Completed
+extern vec vecrand_asm(/* result pointer (hidden),*/ uint64 size); // Completed
 
-extern mat matrand_asm(uint64 rows, uint64 cols); // Completed
+extern mat matrand_asm(/* result pointer (hidden),*/ uint64 rows, uint64 cols); // Completed
 
 extern vec* veccopy_asm(vec* fromvec, vec* tovec); // Completed
 extern mat* matcopy_asm(mat* frommat, mat* tomat); // Completed
@@ -98,7 +98,7 @@ extern mat* matcopy_asm(mat* frommat, mat* tomat); // Completed
 * @return
 */
 // TODO: Handle 0 steps
-extern vec linspace_asm(float start, float end, uint64 steps); // Completed
+extern vec linspace_asm(/* result pointer (hidden),*/ float start, float end, uint64 steps); // Completed
 
 
 extern float vecdotvec_asm(vec* u, vec* v); // Completed

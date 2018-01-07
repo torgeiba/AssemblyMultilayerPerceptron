@@ -25,7 +25,7 @@
 ;
 ; The first four integer or pointer parameters are passed in the rcx, rdx, r8, and r9 registers.
 ; The first four floating-point parameters are passed in the first four SSE registers, xmm0-xmm3.
-; The caller reserves space on the stack for arguments passed in registers. The called function can use this space to spill the contents of registers to the stack.
+; The caller reserves shadow space on the stack for arguments passed in registers. The called function can use this space to spill the contents of registers to the stack.
 ; Any additional arguments are passed on the stack.
 ; An integer or pointer return value is returned in the rax register, while a floating-point return value is returned in xmm0.
 ; rax, rcx, rdx, r8-r11 are volatile.
@@ -222,7 +222,7 @@ datacpy endp
 
 ; Wrapper and Core procedures
 
-; vec vecalloc_asm(uint64 size);
+; vec vecalloc_asm(/*return pointer (hidden),*/ uint64 size);
 ; (hidden parameter) return address: rcx = vec
 ; rdx = size
 vecalloc_asm proc
@@ -256,7 +256,7 @@ vecfree_asm proc
 vecfree_asm endp
 
 
-; vec* veczeros_asm(uint64 size);
+; vec veczeros_asm(/*return pointer (hidden),*/ uint64 size);
 ; rcx = size
 veczeros_asm proc
 	mov qword ptr [rcx + 8], rdx
@@ -273,11 +273,11 @@ veczeros_asm proc
 	pop rcx
 
 	mov qword ptr [rcx], rax ; store vector data pointer using return value from malloc
-	mov rax, rcx ; store pointer to returned struct in
+	mov rax, rcx ; store pointer to returned struct in rax
 	ret
 veczeros_asm endp
 
-; vec* vecones_asm(uint64 size);
+; vec vecones_asm(/*return pointer (hidden),*/ uint64 size);
 vecones_asm proc
 	mov qword ptr [rcx + 8], rdx
 	
@@ -306,8 +306,8 @@ vecones_asm proc
 	ret
 vecones_asm endp
 
-; vec* vecrand_asm(uint64 size);
-; rcx = size
+; vec* vecrand_asm(/*return pointer (hidden),*/ uint64 size);
+; rdx = size
 ; use stdlib's rand(), returning an int, and convert to float in range [0.f, 1.f)
 ; can use conversion instructions cvtsi2sd / cvtsi2ss and cvtsd2ss to perform this conversion
 ; Needs RAND_MAX to scale with. RAND_MAX is a simple define: #define RAND_MAX 0x7fff
@@ -389,7 +389,7 @@ matcopy_asm proc
 	ret
 matcopy_asm endp
 
-; vec linspace_asm(float start, float end, uint64 steps);
+; vec linspace_asm(/*return pointer (hidden),*/ float start, float end, uint64 steps);
 linspace_asm proc
 	mov qword ptr [rcx + 8], r9
 	
@@ -581,9 +581,9 @@ expvec_asm proc
 		dec r14
 	jnz exploop
 
-	pop r12
-	pop r13
 	pop r14
+	pop r13
+	pop r12
 	pop rax ; get result pointer as return value from first rdx push
 	ret
 expvec_asm endp
@@ -906,7 +906,7 @@ equalsvec_impl proc
 
 equalsvec_impl endp
 
-; mat* matalloc_asm(uint64 rows, uint64 cols);
+; mat matalloc_asm(/*return pointer (hidden),*/ uint64 rows, uint64 cols);
 ; (hidden parameter) return address: rcx = vec
 ; rdx = rowsize
 ; r8 = colsize
@@ -961,7 +961,7 @@ matalloc_asm proc
 	ret
 matalloc_asm endp
 
-; mat matzeros_asm(uint64 rows, uint64 cols);
+; mat matzeros_asm(/*return pointer (hidden),*/ uint64 rows, uint64 cols);
 ; (hidden parameter) return address: rcx = vec
 ; rdx = rowsize
 ; r8 = colsize
@@ -1016,7 +1016,7 @@ matzeros_asm proc
 matzeros_asm endp
 
 
-; mat matones_asm(uint64 rows, uint64 cols)
+; mat matones_asm(/*return pointer (hidden),*/ uint64 rows, uint64 cols)
 matones_asm proc
 	call matalloc_asm
 	
@@ -1038,7 +1038,7 @@ matones_asm proc
 	ret
 matones_asm endp
 
-; mat matrand_asm(uint64 rows, uint64 cols);
+; mat matrand_asm(/*return pointer (hidden),*/ uint64 rows, uint64 cols);
 matrand_asm proc
 	call matalloc_asm
 
@@ -1075,7 +1075,7 @@ matrand_asm proc
 	ret
 matrand_asm endp
 
-; mat matidentity_asm(uint64 rows, uint64 cols);
+; mat matidentity_asm(/*return pointer (hidden),*/ uint64 rows, uint64 cols);
 matidentity_asm proc
 	call matzeros_asm
 	
@@ -1479,9 +1479,9 @@ expmat_asm proc
 		dec r14
 	jnz exploop
 
-	pop r12
-	pop r13
 	pop r14
+	pop r13
+	pop r12
 	pop rax ; get result pointer as return value from first rdx push
 	ret
 
