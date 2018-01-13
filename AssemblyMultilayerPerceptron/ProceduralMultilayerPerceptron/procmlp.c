@@ -209,7 +209,7 @@ void bwd(mlp* net, vec output)
 			//matdotvec(net->weights[l], rho, rho);
 			matdotvec_asm(&net->weights[l], &net->layers[l], &rho);
 			addvec_asm(&net->biases[l], &rho, &rho);
-			derivative_sigmoid_activation(rho, rho);
+			derivative_sigmoid_activation_asm(&rho, &rho);
 			mulvec_asm(&rho, &net->layersErr[l + 1], &rho);
 		}
 

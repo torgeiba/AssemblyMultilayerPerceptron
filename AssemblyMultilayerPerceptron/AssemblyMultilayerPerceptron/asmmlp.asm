@@ -18,6 +18,8 @@ extern vecones_asm:proc
 extern scalevec_asm:proc
 extern expvec_asm:proc
 extern addvec_asm:proc
+extern subvec_asm:proc
+extern mulvec_asm:proc
 extern divvec_asm:proc
 extern vecfree_asm:proc
 extern matfree_asm:proc
@@ -124,7 +126,6 @@ makemlp_asm proc
 makemlp_asm endp
 
 
-;  Incomplete
 ; extern void freemlp_asm(mlp* net);
 ; rcx
 ; struct mlp {
@@ -199,26 +200,26 @@ freemlp_asm proc
 		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->biases[w]			; sizeof(vec) = 16
 		call vecfree_asm					;	vecfree_asm(&net->biases[w]);
 		
-	dec r13								;	w--;								
+	dec r13									;	w--;								
 	jnz weight_loop							; }										
 			
-	mov rcx, qword ptr [r12 + 8];  	vec* layers;		+ 8													
-	call free_asm ;free(net->layers);
+	mov rcx, qword ptr [r12 + 8]	; vec* layers;		+ 8													
+	call free_asm					; free(net->layers);
 	
-	mov rcx, qword ptr [r12 + 32];  	vec* layersErr;		+ 32							
-	call free_asm ;free(net->layersErr);
+	mov rcx, qword ptr [r12 + 32]	; vec* layersErr;		+ 32							
+	call free_asm					; free(net->layersErr);
 	
-	mov rcx, qword ptr [r12 + 24];  	mat* weights;		+ 24								
-	call free_asm ;free(net->weights);
+	mov rcx, qword ptr [r12 + 24]	; mat* weights;		+ 24								
+	call free_asm					; free(net->weights);
 	
-	mov rcx, qword ptr [r12 + 48];  	mat* weightsErr;	+ 48				
-	call free_asm ;free(net->weightsErr);
+	mov rcx, qword ptr [r12 + 48]	; mat* weightsErr;	+ 48				
+	call free_asm					; free(net->weightsErr);
 	
-	mov rcx, qword ptr [r12 + 16];  	vec* biases;		+ 16;					
-	call free_asm ;free(net->biases);
-	
-	mov rcx, qword ptr [r12 + 40];  	vec* biasesErr;		+ 40
-	call free_asm ;free(net->biasesErr);					
+	mov rcx, qword ptr [r12 + 16]	; vec* biases;		+ 16;					
+	call free_asm					; free(net->biases);
+
+	mov rcx, qword ptr [r12 + 40]	; vec* biasesErr;		+ 40
+	call free_asm					; free(net->biasesErr);					
 											
 	pop r14									
 	pop r13									
@@ -240,7 +241,7 @@ sigmoid_activation_asm proc
 	call veccopy_asm
 	
 	;uint64 size = min(v.size, result.size);
-	;vec one = vecones_asm((hidden return parameter) size);
+	;vec one = vecones_asm((hidden return parameter), size);
 	sub rsp, 16 ;vec one
 	mov rcx, rsp
 	mov rdx, [r12 + 8] ; set arg to vecones_asm to size of result
@@ -256,8 +257,8 @@ sigmoid_activation_asm proc
 	call scalevec_asm
 
 	;expvec_asm(&result, &result);
-	mov rcx, r12 ; set second arg to expvec_asm to pointer to result
-	mov rdx, r12 ; set third arg to expvec_asm to pointer to result
+	mov rcx, r12 ; set first arg to expvec_asm to pointer to result
+	mov rdx, r12 ; set second arg to expvec_asm to pointer to result
 	call expvec_asm
 
 	;addvec_asm(&result, &one, &result);
@@ -279,7 +280,7 @@ sigmoid_activation_asm proc
 	mov rax, r12 ; set pointer to result as return value
 
 	add rsp, 16
-	pop r13	; restore non-volatile reg r13
+	pop r13		; restore non-volatile reg r13
 	pop r12		; restore non-volatile reg r12
 
 	ret
@@ -288,18 +289,68 @@ sigmoid_activation_asm endp
 ; extern void derivative_sigmoid_activation_asm(vec* v, vec* result);
 ; input rcx, rdx
 derivative_sigmoid_activation_asm proc
+
+	push r12
+	push r13
+	mov r12, rdx ; store pointer to result vec in r12
 	
-	;uint64 index = 0;
-	;uint64 size = min(v.size, result.size);
-	;vec one = vecones_asm(size);
-	;veccopy_asm(&v, &result);
-	;scalevec_asm(-1.f, &result, &result);
-	;expvec_asm(&result, &result);
-	;addvec_asm(&result, &one, &result);
-	;divvec_asm(&one, &result, &result);
-	;subvec_asm(&one, &result, &one);
-	;mulvec_asm(&one, &result, &result);
+	; veccopy_asm(&v, &result);
+	; uses args to this procedure directly
+	; no need to save pointer to v in rcx, as it is not used anymore
+	call veccopy_asm
+
+	; uint64 size = min(v.size, result.size);
+	; vec one = vecones_asm((hidden return parameter), size);
+	sub rsp, 16 ;vec one
+	mov rcx, rsp
+	mov rdx, [r12 + 8] ; set arg to vecones_asm to size of result
+	call vecones_asm
+	mov r13, rax ; store pointer to one vec in r13
+
+	; scalevec_asm(-1.f, &result, &result);
+	mov rcx, 1
+	neg rcx
+	cvtsi2ss xmm0, rcx; set first arg to scalevec to -1.f
+	mov rdx, r12		; set second arg to scalevec to pointer to result
+	mov r8, r12			; set third arg to scalevec to pointer to result
+	call scalevec_asm
+
+	; expvec_asm(&result, &result);
+	mov rcx, r12 ; set first arg to expvec_asm to pointer to result
+	mov rdx, r12 ; set second arg to expvec_asm to pointer to result
+	call expvec_asm
+
+	; addvec_asm(&result, &one, &result);
+	mov rcx, r12 ; set first arg to result vec
+	mov rdx, r13  ; set second arg to one vec
+	mov r8, r12  ; set third arg to result vec
+	call addvec_asm
+
+	; divvec_asm(&one, &result, &result);
+	mov rcx, r13 ; set first arg to one vec
+	mov rdx, r12  ; set second arg to result vec
+	mov r8, r12  ; set third arg to result vec
+	call divvec_asm
+
+	; subvec_asm(&one, &result, &one);
+	mov rcx, r13  ; set first arg to one vec
+	mov rdx, r12  ; set second arg to result vec
+	mov r8, r13   ; set third arg to result vec
+	call subvec_asm
+
+	; mulvec_asm(&one, &result, &result);
+	mov rcx, r13  ; set first arg to one vec
+	mov rdx, r12  ; set second arg to result vec
+	mov r8, r12   ; set third arg to result vec
+	call mulvec_asm
+
+
 	;vecfree_asm(&one);
+	mov rax, r12 ; set pointer to result as return value
+
+	add rsp, 16
+	pop r13		; restore non-volatile reg r13
+	pop r12		; restore non-volatile reg r12
 
 	ret
 derivative_sigmoid_activation_asm endp
