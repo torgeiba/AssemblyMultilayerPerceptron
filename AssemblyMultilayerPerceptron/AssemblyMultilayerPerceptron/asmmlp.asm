@@ -20,6 +20,7 @@ extern expvec_asm:proc
 extern addvec_asm:proc
 extern divvec_asm:proc
 extern vecfree_asm:proc
+extern matfree_asm:proc
 
 
 .data
@@ -122,37 +123,107 @@ makemlp_asm proc
 	ret
 makemlp_asm endp
 
+
+;  Incomplete
 ; extern void freemlp_asm(mlp* net);
 ; rcx
+; struct mlp {
+;  	uint64 numlayers;	+ 0
+;  	vec* layers;		+ 8
+;  	vec* biases;		+ 16
+;  	mat* weights;		+ 24
+;  	
+;  	vec* layersErr;		+ 32
+;  	vec* biasesErr;		+ 40
+;  	mat* weightsErr;	+ 48
+;
+;  	float learningrate; + 56 ; note!
+;  	uint64 numepochs;   + 60 ; prev was 4 byte float
+;  };
 freemlp_asm proc
 
-	;uint64 numweights = net->numlayers - 1;
-	;
-	;uint64 l = 0;
-	;while (l < net->numlayers)
-	;{
-	;	vecfree_asm(&net->layers[l]);
-	;	vecfree_asm(&net->layersErr[l]);
-	;	l++;
-	;}
-	;
-	;uint64 w = 0;
-	;while (w < numweights)
-	;{
-	;	matfree_asm(&net->weights[w]);
-	;	matfree_asm(&net->weightsErr[w]);
-	;	vecfree_asm(&net->biases[w]);
-	;	vecfree_asm(&net->biasesErr[w]);
-	;	w++;
-	;}
-	;
-	;free(net->layers);
-	;free(net->layersErr);
-	;free(net->weights);
-	;free(net->weightsErr);
-	;free(net->biases);
-	;free(net->biasesErr);
+	push r12
+	push r13
+	push r14
 
+	mov r12, rcx; r12 = mlp* net
+
+	mov r13, [r12 + 0] 		; uint64 l = net->numlayers;
+	dec r13
+	layer_loop:								; while (l > 0) {
+		mov r14, qword ptr [r12 + 8]		;	r14 = &mlp->layers[0]
+		mov rdx, r13
+		shl rdx, 4							; rdx = r13 * 16
+		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->layers[l] ; sizeof(vec) = 16
+		call vecfree_asm					;	vecfree_asm(&net->layers[l]);
+
+		mov r14, qword ptr [r12 + 32]		;	r14 = mlp->layersErr
+		mov rdx, r13
+		shl rdx, 4							; rdx = r13 * 16
+		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->layersErr[l] ; sizeof(vec) = 16
+		call vecfree_asm					;	vecfree_asm(&net->layersErr[l]);
+
+	dec r13									;	l--;
+	jnz layer_loop							; }
+	
+	;uint64 w = numweights = net->numlayers - 1;					
+	mov r13, [r12 + 0]
+	dec r13
+	dec r13									;	w--;										
+	weight_loop:							; while (w > 0) {	
+		mov r14, qword ptr [r12 + 48]		;	r14 = mlp->weightsErr
+		mov rdx, r13
+		shl rdx, 2
+		sub rdx, r13
+		shl rdx, 3							; rdx = r13 * 3 * 8 = rdx * 24
+		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->weightsErr[w]		 ; sizeof(vec) = 24
+		call matfree_asm					;	matfree_asm(&net->weightsErr[w]);	
+		
+		mov r14, qword ptr [r12 + 40]		;	r14 = mlp->biasErr
+		mov rdx, r13
+		shl rdx, 4							; rdx = r13 * 16
+		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->biasesErr[w]		; sizeof(vec) = 16
+		call vecfree_asm					;	vecfree_asm(&net->biasesErr[w]);	
+		
+		mov r14, qword ptr [r12 + 24]		;	r14 = mlp->weights
+		mov rdx, r13
+		shl rdx, 2
+		sub rdx, r13
+		shl rdx, 3							; rdx = r13 * 3 * 8 = rdx * 24
+		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->weights[w]			; sizeof(vec) = 24
+		call matfree_asm					;	matfree_asm(&net->weights[w]);
+		
+		mov r14, qword ptr [r12 + 16]		;	r14 = mlp->bias
+		mov rdx, r13
+		shl rdx, 4							; rdx = r13 * 16
+		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->biases[w]			; sizeof(vec) = 16
+		call vecfree_asm					;	vecfree_asm(&net->biases[w]);
+		
+	dec r13								;	w--;								
+	jnz weight_loop							; }										
+			
+	mov rcx, qword ptr [r12 + 8];  	vec* layers;		+ 8													
+	call free_asm ;free(net->layers);
+	
+	mov rcx, qword ptr [r12 + 32];  	vec* layersErr;		+ 32							
+	call free_asm ;free(net->layersErr);
+	
+	mov rcx, qword ptr [r12 + 24];  	mat* weights;		+ 24								
+	call free_asm ;free(net->weights);
+	
+	mov rcx, qword ptr [r12 + 48];  	mat* weightsErr;	+ 48				
+	call free_asm ;free(net->weightsErr);
+	
+	mov rcx, qword ptr [r12 + 16];  	vec* biases;		+ 16;					
+	call free_asm ;free(net->biases);
+	
+	mov rcx, qword ptr [r12 + 40];  	vec* biasesErr;		+ 40
+	call free_asm ;free(net->biasesErr);					
+											
+	pop r14									
+	pop r13									
+	pop r12									
+											
 	ret
 freemlp_asm endp
 
