@@ -536,9 +536,23 @@ bwd_asm endp
 ; input rcx, rdx, r8
 learn_asm proc
 
+	push r12
+	push r13
+
+	mov r12, rcx ; r12 = mlp* net
+	mov r13, r8  ; r13 = vec* output
+
 	; call fwd(net, input);
+	; params already in place
+	call fwd_asm
 
 	; call bwd(net, output);
+	mov rcx, r12 ; net
+	mov rdx, r13 ; output
+	call bwd_asm
+
+	pop r13
+	pop r12
 
 	ret
 learn_asm endp
