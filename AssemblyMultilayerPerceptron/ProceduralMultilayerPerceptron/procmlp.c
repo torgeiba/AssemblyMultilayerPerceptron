@@ -149,7 +149,8 @@ void fwd(mlp* net, vec input)
 		int bActivate = l < L;
 
 		//  - transfer to next layer ( from l-1 to l )
-		transfer(net, l, bActivate);
+		//transfer(net, l, bActivate);
+		transfer_asm(net, l, bActivate);
 		l++;
 	}
 }

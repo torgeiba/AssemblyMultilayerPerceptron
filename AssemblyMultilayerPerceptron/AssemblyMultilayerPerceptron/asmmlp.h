@@ -29,3 +29,5 @@ extern void train_asm(mlp* net, mat* inputs, mat* outputs);
 // void printoutputs(mlp* net, mat inputs);
 // void printerrors(mlp* net, mat inputs, mat outputs);
 // void printmlp(mlp* net);
+
+extern void transfer_asm(mlp* net, uint64 l, int bActivate);

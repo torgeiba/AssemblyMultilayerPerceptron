@@ -21,6 +21,7 @@ extern addvec_asm:proc
 extern subvec_asm:proc
 extern mulvec_asm:proc
 extern divvec_asm:proc
+extern matdotvec_asm:proc
 extern vecfree_asm:proc
 extern matfree_asm:proc
 
@@ -360,10 +361,94 @@ derivative_sigmoid_activation_asm endp
 ; input rcx, rdx, r8
 transfer_asm proc
 
-	; matdotvec_asm(&net->weights[l - 1], &net->layers[l - 1], &net->layers[l]);
-	; addvec_asm(&net->layers[l], &net->biases[l - 1], &net->layers[l]); // Add bias term
+	push r12
+	push r13
+	push r14
+	push r15
+
+	mov r12, rcx ; r12 = mlp* net
+	mov r13, rdx ; r13 = uint64 l
+	mov r14, r8  ; r14 = bool bActivate
+
+	; r15 = l-1
+	mov r15, r13;
+	dec r15
+
+
+	; struct mlp {
+	;  	uint64 numlayers;	+ 0
+	;  	vec* layers;		+ 8
+	;  	vec* biases;		+ 16
+	;  	mat* weights;		+ 24
+	;  	
+	;  	vec* layersErr;		+ 32
+	;  	vec* biasesErr;		+ 40
+	;  	mat* weightsErr;	+ 48
+	;
+	;  	float learningrate; + 56 ; note!
+	;  	uint64 numepochs;   + 60 ; prev was 4 byte float
+	;  };
+
+
+	mov r9,  qword ptr [r12 + 8]  ; &net-layers[0]
+	mov r10, qword ptr [r12 + 24] ; &net-weights[0]
+
+
+	; matdotvec
+	mov r9, [r12 + 24]	; r9 = &net-weights[0] (mlp+24)
+	mov r10, r15		; r10 = l-1
+	shl r10, 2				
+	sub r10, r15		; r10 *= 3
+	shl r10, 3			; r10 *= 8, r10 = 24
+	; r10 = (l-1) * 24 = (l-1) * sizeof(mat) 		  
+	lea rcx, [r9 + r10] ; second param &net-weights[l - 1]
+
+	mov r9, [r12 + 8]	; r9 = &net-layers[0] (mlp+8)
+	mov r10, r15		; r10 = l-1
+	shl r10, 4			; r10 = (l-1) * 16 = (l-1) * sizeof(vec) 		  
+	lea rdx, [r9 + r10] ; second param &net-layers[l - 1]
+
+
+	mov r9, [r12 + 8]	; r9 = &net-layers[0]
+	mov r10, r13		; r10 = l
+	shl r10, 4			; r10 = l * 16 = l * sizeof(vec) 		  
+	lea r8, [r9 + r10] ; first param &net-layers[l]
+
+	call matdotvec_asm		; matdotvec_asm(&net->weights[l - 1], &net->layers[l - 1], &net->layers[l]);
+	
+
+	; addvec
+	mov r9, [r12 + 8]	; r9 = &net-layers[0]
+	mov r10, r13		; r10 = l
+	shl r10, 4			; r10 = l * 16 = l * sizeof(vec) 		  
+	lea rcx, [r9 + r10] ; first param &net-layers[l]
+
+	mov r9, [r12 + 16]	; r9 = &net-biases[0] (mlp+16)
+	mov r10, r15		; r10 = l-1
+	shl r10, 4			; r10 = (l-1) * 16 = (l-1) * sizeof(vec) 		  
+	lea rdx, [r9 + r10] ; second param &net-biases[l - 1]
+
+	mov r8, rcx			; third param &net-layers[l]
+	call addvec_asm		; addvec_asm(&net->layers[l], &net->biases[l - 1], &net->layers[l]); // Add bias term
+	
+	
 	; //  - Apply activation function
-	; if (bActivate) { sigmoid_activation(net->layers[l], net->layers[l]); }
+	; if (bActivate) { sigmoid_activation_asm(&net->layers[l], &net->layers[l]); }
+	mov r8, 0
+	cmp r14, r8
+	jle skip_activation
+		mov r9, [r12 + 8]	; &net-layers[0]
+		mov r10, r13		; r10 = l
+		shl r10, 4			; r10 = l * 16 = l * sizeof(vec*) 		  
+		lea rcx, [r9 + r10] ; first param &net-layers[l]
+		mov rdx, rcx		; second param &net-layers[l]
+		call sigmoid_activation_asm
+	skip_activation:
+
+	pop r15
+	pop r14
+	pop r13
+	pop r12
 
 	ret
 transfer_asm endp
