@@ -561,25 +561,95 @@ learn_asm endp
 ; input rcx, rdx, r8
 train_asm proc
 
+	push r12 ; &input
+	push r13 ; &output
+	push r14 ; epoch counter
+	push r15 ; traningset counter
+
 	; uint64 size = min(inputs.rows, outputs.rows);
 	; uint64 e = 0;
-	; vec input;
-	; vec output;
+	
+	sub rsp, 32 ; alloc input and output vecs
+	; vec input;  (16 bytes)
+	; vec output; (16 bytes)
+
+	mov r12, rsp ; r9 = &input
+	
+	mov r13, rsp
+	add r13, 16  ; r10 = &output
+
 	; input.size = inputs.cols;
+	mov r9, [rdx + 16]
+	mov [r12 + 8], r9
+
 	; output.size = outputs.cols;
-	; while (e < net->numepochs)
-	; {
-	; 	uint64 i = 0;
-	; 	while (i < size)
-	; 	{
-	; 		int idx = rand() % size;
-	; 		input.data = inputs.data[idx];
-	; 		output.data = outputs.data[idx];
-	; 		learn(net, input, output);
-	; 		i++;
+	mov r9, [r8 + 16]
+	mov [r13 + 8], r9
+
+	; r14 = e = net->numepochs
+	mov r14, [rcx + 60] ;  	uint64 numepochs;   + 60
+	epoch_iterations: ; while (e > 0) {
+		mov r15, [rdx + 8]; 	uint64 i = size; inputs.rows
+		trainingset_iterations: ; 	while (i > 0)
+		
+		; TODO: optimize, use rsp offsets for input/output vecs
+		; to free up non-volatile regs for input pointers to this function
+		; so volatile regs do not have to be pushed and popped
+
+		; prep to call rand_asm
+		push rcx
+		push rdx
+		push r8						; 	{
+	
+		call rand_asm				; 		int idx = rand() % size;
+	
+		mov r10, [rcx + 8]
+		div r10						;		rdx	= idx
+		mov r9, rdx					;		r9  = idx
+
+		pop r8
+		pop rdx
+		pop rcx
+		
+		; prep to call learn_asm
+		push rcx
+		push rdx
+		push r8
+
+		mov r10, [rdx]			;		&inputs.data[0]
+		mov r11, [r8]			;		&output.data[0]
+		shl r9, 3				;		multiply index by pointer size(8) to get offsets
+
+		add r10, r9
+		add r11, r9
+		
+		mov [r12], r10			; 		input.data  = inputs.data[idx];
+		mov [r12], r10			; 		output.data = outputs.data[idx];
+
+								; first param mlp* net already in rcx
+		mov rdx, r12			; second param input
+		mov r8 , r13			; third param output
+
+		call learn_asm			; 		learn_asm(&net, &input, &output);
+		
+		pop r8
+		pop rdx
+		pop rcx
+		
+		dec r15					; 		i--;
+		jnz trainingset_iterations
 	; 	}
-	; 	e++;
+	; 	e--;
+	dec r14
+	jnz epoch_iterations
 	; }
+
+	add rsp, 32 ; dealloc input and output vecs
+	pop r15
+	pop r14
+	pop r13
+	pop r12
+
 
 	ret
 train_asm endp
