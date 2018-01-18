@@ -13,6 +13,7 @@ extern free_asm:proc   ; freeing dynamically allocated heap memory, as implement
 extern rand_asm:proc   ; random integer generator function from C stdlib
 
 ; asmmath lib
+extern vecalloc_asm:proc
 extern veccopy_asm:proc
 extern vecones_asm:proc
 extern scalevec_asm:proc
@@ -22,8 +23,13 @@ extern subvec_asm:proc
 extern mulvec_asm:proc
 extern divvec_asm:proc
 extern matdotvec_asm:proc
+extern matTdotvec_asm:proc
+extern outervec_asm:proc
 extern vecfree_asm:proc
 extern matfree_asm:proc
+extern submat_asm:proc
+extern scalemat_asm:proc
+
 
 
 .data
@@ -457,77 +463,217 @@ transfer_asm endp
 ; input rcx, rdx
 fwd_asm proc
 
+	push r12 ; L
+	push r13 ; l
+	push r14 ; mlp
+	push r15 ; numlayers
+
+	mov r14, rcx ; r14 = mlp* net
+
 	; // Insert input into first layer
+
 	; veccopy_asm(&input, &net->layers[0]);
-	; 
-	; uint64 L = net->numlayers - 1ULL;
+	mov rcx, rdx		; first param &input
+	mov rdx, [r14 + 8]	; second param &net->layers[0];  	vec* layers; (mlp + 8)
+	call veccopy_asm
+
+	; uint64 L = net->numlayers - 1ULL; = &mlp + 0
+	mov r15, [r14 + 0] ; net->numlayers
+	mov r12, r15 ; L = numlayers - 1
+	dec r12
+
 	; // For each layer
 	; uint64 l = 1;
-	; while (l < net->numlayers)
-	; {
-	; 	// Skip activation function for last layer
-	; 	int bActivate = l < L;
-	; 
-	; 	//  - transfer to next layer ( from l-1 to l )
-	; 	transfer(net, l, bActivate);
-	; 	l++;
+	mov r13, 1
+	layer_loop: ; while (l < net->numlayers) {
+		; 	//  - transfer to next layer ( from l-1 to l )
+		mov rcx, r14 ; net
+		mov rdx, r13 ; l
+
+		; // Skip activation function for last layer
+		xor r8, r8
+		mov r9, 1
+		cmp r13, r12 ; int bActivate = l < L;
+		cmovl r8, r9  ; bActivate
+		call transfer_asm ; transfer_asm(&net, l, bActivate);
+		
+	inc r13; 	l++;
+	cmp r13, r15
+	jl layer_loop
 	; }
+
+	pop r15
+	pop r14
+	pop r13
+	pop r12
 
 	ret
 fwd_asm endp
 
 ; extern void bwd_asm(mlp* net, vec* output);
-; input rcx, rdx
-bwd_asm proc
+; input:
+; rcx = &net
+; rdx = &output
+bwd_asm proc											; struct mlp {
+														;  	uint64 numlayers;	+ 0
+	push r12 ; L										;  	vec* layers;		+ 8
+	push r13 ; l										;  	vec* biases;		+ 16
+	push r14 ; &rho										;  	mat* weights;		+ 24
+	push r15 ; &net										;  	vec* layersErr;		+ 32
+	push rbx ; rate										;
+														;  	vec* biasesErr;		+ 40
+	mov r15, rcx ; r15 = &net							;  	mat* weightsErr;	+ 48
+	;uint64 L = net->numlayers - 1ULL;(+0)				;
+	mov r12, [r15 + 0]									;  	float learningrate; + 56 ; note!
+	dec r12												;  	uint64 numepochs;   + 60 ; prev was 4 byte float
+														;  };
+	mov rbx, [r15 + 56] ; float rate = net->learningrate;	(+56)
+	;// calculate output error gradient			
+												
+	mov rcx, ; TODO
+	mov rdx, rdx; &output
+	mov r8 , ; TODO
+	call subvec_asm ; subvec_asm(&net->layers[L], &output, &net->layersErr[L]); // dE/dx_L = eps_L = x_L - y
+
+	; vec rho;
+	mov r14, rsp ; r14 = &rho
+	sub rsp, 16; move sizeof(vec) = 16 bytes
 	
-	;uint64 L = net->numlayers - 1ULL;
-	;float rate = net->learningrate;
-	;
-	;// calculate output error gradient
-	;subvec_asm(&net->layers[L], &output, &net->layersErr[L]); // dE/dx_L = eps_L = x_L - y
-	;
-	;uint64 l = L;
-	;while (l > 0) { // For all weights L-1, ..., 0
-	;	l--; // Go to next backwards layer
+	mov r13, r12 ;uint64 l = L;
+
+	bwd_layer_loop: ;while (l > 0) { // For all weights L-1, ..., 0
+		dec r13 ;	l--; // Go to next backwards layer
 	;
 	;	// Propagate backwards
 	;	// - calc propagation factor 
 	;	// rho_l = eps_{l+1} * f'(x^{l+1})
-	;	vec rho = vecalloc(net->layers[l + 1].size);
-	;	if (l == L - 1) {
-	;		veccopy_asm(&net->layersErr[l + 1], &rho);
-	;	}
-	;	else {
-	;		matdotvec_asm(&net->weights[l], &net->layers[l], &rho);
-	;		addvec_asm(&net->biases[l], &rho, &rho);
-	;		derivative_sigmoid_activation(rho, rho);
-	;		mulvec_asm(&rho, &net->layersErr[l + 1], &rho);
+		mov rcx, r14; &rho return pointer
+		mov rdx, [r15 + 8] ; &net->layers[0]
+
+		mov rdx, [r15 + 8]; &net->layers[0];  	vec* layers;		+ 8
+		mov r9, r13; r9 = l
+		inc r9     ; r9 = l + 1
+		shl r9, 4  ; r9 = l * sizeof(vec); sizeof(vec) = 16 = 1000b
+		add rdx, r9; &net->layers[l + 1]
+		mov rdx, [rdx + 8]; &net->layers[0]->size
+		call vecalloc_asm ;	vec rho = vecalloc_asm(/*hidden return addr  &rho */ net->layers[l + 1].size);
+	
+		mov r9, r12 ; r9 = L
+		dec r9      ; r9 = L - 1
+		cmp r13, r9 ; l == L - 1
+		jne bwd_not_last_layer ;	if (l == L - 1)
+		;{
+			mov rcx, [r15 + 32]; &net->layersErr[0];  	vec* layersErr;		+ 32
+			mov r9, r13; r9 = l
+			inc r9     ; r9 = l + 1
+			shl r9, 4  ; r9 = (l + 1) * sizeof(vec); sizeof(vec) = 16 = 1000b
+			add rcx, r9; &net->layersErr[l + 1] 
+
+			mov rdx, r14; &rho
+			call veccopy_asm ;		veccopy_asm(&net->layersErr[l + 1], &rho);
+		;}
+		jmp bwd_end_last_layer
+		bwd_not_last_layer: ;	else {
+
+			mov rcx, [r15 + 24]; &net->weights[0];  	mat* weights;		+ 24
+			mov r9, r13; r9 = l
+			shl r9, 3  ; r9 = l* sizeof(mat); sizeof(mat) = 24 = 1100b = 1000b + 100b
+			add rcx, r9; &net->weights[l]
+			shl r9, 1  ; r9 = l* sizeof(mat); sizeof(mat) = 24 = 1100b = 1000b + 100b
+			add rcx, r9; &net->weights[l]
+
+			mov rdx, [r15 + 8]; &net->layers[0];  	vec* layers;		+ 8
+			mov r9, r13; r9 = l
+			shl r9, 4  ; r9 = l * sizeof(vec); sizeof(vec) = 16 = 1000b
+			add rdx, r9; &net->layers[l];
+
+			mov r8 , r14; &rho
+			call addvec_asm ;		matdotvec_asm(&net->weights[l], &net->layers[l], &rho);
+
+
+			mov rcx, [r15 + 16]; &net->biases[0];  	vec* biases;		+ 16
+			mov r9, r13; r9 = l
+			shl r9, 4  ; r9 = l * sizeof(vec); sizeof(vec) = 16 = 1000b
+			add rcx, r9; &net->biases[l] 
+
+			mov rdx, r14; &rho
+			mov r8 , r14; &rho
+			call addvec_asm ;		addvec_asm(&net->biases[l], &rho, &rho);
+
+			mov rcx, r14; &rho
+			mov rdx, r14; &rho
+			call derivative_sigmoid_activation_asm;		derivative_sigmoid_activation_asm(&rho, &rho);
+
+			mov rcx, r14; &rho
+			mov rdx, ; &net->layersErr[l + 1]
+			mov r8 , r14; &rho
+			call mulvec_asm ; mulvec_asm(&rho, &net->layersErr[l + 1], &rho);
+		bwd_end_last_layer:
 	;	}
 	;
 	;	// - calc weight error
 	;	// dE/dW_l = rho_l x_l^T
-	;	outervec_asm(&rho, &net->layers[l], &net->weightsErr[l]);
-	;	scalemat_asm(rate, &net->weightsErr[l], &net->weightsErr[l]); // Use Err as temp storage
+		mov rcx, r14; &rho
+		mov rdx, ; TODO
+		mov r8 , ; TODO
+		call outervec_asm ;	outervec_asm(&rho, &net->layers[l], &net->weightsErr[l]);
+	;	
+
+		mov rcx, rbx; rate
+		mov rdx, ; TODO
+		mov r8 , ; TODO
+		call scalemat_asm ; scalemat_asm(rate, &net->weightsErr[l], &net->weightsErr[l]); // Use Err as temp storage
 	;
 	;	// - calc bias error
 	;	// dE/db_l = rho_l
-	;	veccopy_asm(&rho, &net->biasesErr[l]);
-	;	scalevec_asm(rate, &net->biasesErr[l], &net->biasesErr[l]); // Use Err as temp storage
+		mov rcx, r14; &rho
+		mov rdx, ; TODO
+		call veccopy_asm ;	veccopy_asm(&rho, &net->biasesErr[l]);
+
+
+		mov rcx, rbx; rate
+		mov rdx, ; TODO
+		mov r8 , ; TODO
+		call scalevec_asm ;	scalevec_asm(rate, &net->biasesErr[l], &net->biasesErr[l]); // Use Err as temp storage
 	;
 	;	// Skip input error calc
 	;	// - calc next backwards layer error
-	;	if (l > 0)
-	;	{
+		xor r8, r8 
+		cmp r13, r8;	if (l > 0) {
+		jng skip_input_error_calc
 	;		// eps_l = W_l^T rho_l
-	;		matTdotvec_asm(&net->weights[l], &rho, &net->layersErr[l]);
+			mov rcx, ; TODO
+			mov rdx, r14 ; &rho
+			mov r8 , ; TODO
+			call matTdotvec_asm ;		matTdotvec_asm(&net->weights[l], &rho, &net->layersErr[l]);
+		skip_input_error_calc:
 	;	}
 	;
 	;	// update weights by learning rate
-	;	subvec_asm(&net->biases[l], &net->biasesErr[l], &net->biases[l]);
-	;	submat_asm(&net->weights[l], &net->weightsErr[l], &net->weights[l]);
-	;	// free allocated vectors
-	;	vecfree_asm(&rho);
+		mov rcx, ; TODO &net->biases[l]
+		mov rdx, ; TODO &net->biasesErr[l]
+		mov r8 , rcx; &net->biases[l]
+		call subvec_asm ;	subvec_asm(&net->biases[l], &net->biasesErr[l], &net->biases[l]);
+
+		mov rcx, ; TODO &net->weights[l]
+		mov rdx, ; TODO &net->weightsErr[l]
+		mov r8 , rcx; &net->weights[l]
+		call submat_asm ;	submat_asm(&net->weights[l], &net->weightsErr[l], &net->weights[l]);
+	
+		;	// free allocated vectors
+		mov rcx, r14 ; &rho
+		call vecfree_asm ;	vecfree_asm(&rho);
+
+	xor r8, r8
+	cmp r13, r8 ;(l > 0)
+	jg bwd_layer_loop
 	;}
+
+	add rsp, 16; move sizeof(vec) = 16 bytes
+	pop r15
+	pop r14
+	pop r13
+	pop r12
 
 	ret
 bwd_asm endp
