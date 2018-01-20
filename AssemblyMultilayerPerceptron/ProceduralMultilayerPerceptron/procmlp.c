@@ -244,7 +244,8 @@ void learn(mlp* net, vec input, vec output)
 {
 	//fwd(net, input);
 	fwd_asm(net, &input);
-	bwd(net, output);
+	//bwd(net, output);
+	bwd_asm(net, &output);
 	// system("cls");
 	// printmlp(net);
 }

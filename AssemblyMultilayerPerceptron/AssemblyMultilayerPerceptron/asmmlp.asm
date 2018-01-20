@@ -510,6 +510,8 @@ fwd_asm proc
 	ret
 fwd_asm endp
 
+; TODO: Seems to have a bug giving wrong output.
+; Might be a problem with the number of iterations or learning rate
 ; extern void bwd_asm(mlp* net, vec* output);
 ; input:
 ; rcx = &net
@@ -527,15 +529,24 @@ bwd_asm proc											; struct mlp {
 	mov r12, [r15 + 0]									;  	float learningrate; + 56 ; note!
 	dec r12												;  	uint64 numepochs;   + 60 ; prev was 4 byte float
 														;  };
-	mov rbx, [r15 + 56] ; float rate = net->learningrate;	(+56)
+	xor rbx, rbx
+	mov ebx, dword ptr [r15 + 56] ; float rate = net->learningrate;	(+56)
 	;// calculate output error gradient			
 												
-	mov rcx, ; TODO
-	mov rdx, rdx; &output
-	mov r8 , ; TODO
+	mov rcx, [r15 + 8]; &net->layers[0];  	vec* layers;		+ 8
+	mov r9, r12; r9 = L
+	shl r9, 4  ; r9 = L * sizeof(vec); sizeof(vec) = 16 = 1000b
+	add rcx, r9; &net->layers[L];
+
+	; mov rdx, rdx; &output
+
+	mov r8, [r15 + 32]; &net->layersErr[0];  	vec* layersErr;		+ 32
+	mov r9, r12; r9 = L
+	shl r9, 4  ; r9 = L  * sizeof(vec); sizeof(vec) = 16 = 1000b
+	add r8, r9; &net->layersErr[L]
 	call subvec_asm ; subvec_asm(&net->layers[L], &output, &net->layersErr[L]); // dE/dx_L = eps_L = x_L - y
 
-	; vec rho;
+	; vec rho ; 'Allocate' on stack
 	mov r14, rsp ; r14 = &rho
 	sub rsp, 16; move sizeof(vec) = 16 bytes
 	
@@ -548,12 +559,11 @@ bwd_asm proc											; struct mlp {
 	;	// - calc propagation factor 
 	;	// rho_l = eps_{l+1} * f'(x^{l+1})
 		mov rcx, r14; &rho return pointer
-		mov rdx, [r15 + 8] ; &net->layers[0]
 
 		mov rdx, [r15 + 8]; &net->layers[0];  	vec* layers;		+ 8
 		mov r9, r13; r9 = l
 		inc r9     ; r9 = l + 1
-		shl r9, 4  ; r9 = l * sizeof(vec); sizeof(vec) = 16 = 1000b
+		shl r9, 4  ; r9 = (l+1) * sizeof(vec); sizeof(vec) = 16 = 1000b
 		add rdx, r9; &net->layers[l + 1]
 		mov rdx, [rdx + 8]; &net->layers[0]->size
 		call vecalloc_asm ;	vec rho = vecalloc_asm(/*hidden return addr  &rho */ net->layers[l + 1].size);
@@ -588,7 +598,7 @@ bwd_asm proc											; struct mlp {
 			add rdx, r9; &net->layers[l];
 
 			mov r8 , r14; &rho
-			call addvec_asm ;		matdotvec_asm(&net->weights[l], &net->layers[l], &rho);
+			call matdotvec_asm ;		matdotvec_asm(&net->weights[l], &net->layers[l], &rho);
 
 
 			mov rcx, [r15 + 16]; &net->biases[0];  	vec* biases;		+ 16
@@ -605,35 +615,68 @@ bwd_asm proc											; struct mlp {
 			call derivative_sigmoid_activation_asm;		derivative_sigmoid_activation_asm(&rho, &rho);
 
 			mov rcx, r14; &rho
-			mov rdx, ; &net->layersErr[l + 1]
+
+			mov rdx, [r15 + 32]; &net->layersErr[0];  	vec* layersErr;		+ 32
+			mov r9, r13; r9 = l
+			inc r9     ; r9 = l + 1
+			shl r9, 4  ; r9 = (l + 1) * sizeof(vec); sizeof(vec) = 16 = 1000b
+			add rdx, r9; &net->layersErr[l + 1]
+
 			mov r8 , r14; &rho
 			call mulvec_asm ; mulvec_asm(&rho, &net->layersErr[l + 1], &rho);
 		bwd_end_last_layer:
 	;	}
-	;
+
 	;	// - calc weight error
 	;	// dE/dW_l = rho_l x_l^T
 		mov rcx, r14; &rho
-		mov rdx, ; TODO
-		mov r8 , ; TODO
-		call outervec_asm ;	outervec_asm(&rho, &net->layers[l], &net->weightsErr[l]);
-	;	
 
-		mov rcx, rbx; rate
-		mov rdx, ; TODO
-		mov r8 , ; TODO
+		mov rdx, [r15 + 8]; &net->layers[0];  	vec* layers;		+ 8
+		mov r9, r13; r9 = l
+		shl r9, 4  ; r9 = l * sizeof(vec); sizeof(vec) = 16 = 1000b
+		add rdx, r9; ; &net->layers[l]
+			
+		mov r8, [r15 + 48]; &net->weightsErr[0];  	mat* weightsErr;		+ 48
+		mov r9, r13; r9 = l
+		shl r9, 3  ; sizeof(mat) = 24 = 1100b = 1000b + 100b
+		add r8, r9;
+		shl r9, 1  ; r9 = l * sizeof(mat); sizeof(mat) = 24 = 1100b = 1000b + 100b
+		add r8, r9; &net->weightsErr[l]
+		call outervec_asm ;	outervec_asm(&rho, &net->layers[l], &net->weightsErr[l]);
+
+
+		movd xmm0, ebx; rate
+		
+		mov rdx, [r15 + 48]; &net->weightsErr[0];  	mat* weightsErr;		+ 48
+		mov r9, r13; r9 = l
+		shl r9, 3  ; sizeof(mat) = 24 = 1100b = 1000b + 100b
+		add rdx, r9;
+		shl r9, 1  ; r9 = l * sizeof(mat); sizeof(mat) = 24 = 1100b = 1000b + 100b
+		add rdx, r9; &net->weightsErr[l]
+
+		mov r8 , rdx; &net->weightsErr[l]
 		call scalemat_asm ; scalemat_asm(rate, &net->weightsErr[l], &net->weightsErr[l]); // Use Err as temp storage
-	;
+
 	;	// - calc bias error
 	;	// dE/db_l = rho_l
 		mov rcx, r14; &rho
-		mov rdx, ; TODO
+
+		mov rdx, [r15 + 40]; &net->biasesErr[0];  	vec* biasesErr;		+ 40
+		mov r9, r13; r9 = l
+		shl r9, 4  ; r9 = l * sizeof(vec); sizeof(vec) = 16 = 1000b
+		add rdx, r9; ; &net->biasesErr[l]
+
 		call veccopy_asm ;	veccopy_asm(&rho, &net->biasesErr[l]);
 
 
-		mov rcx, rbx; rate
-		mov rdx, ; TODO
-		mov r8 , ; TODO
+		movd xmm0, ebx; rate
+
+		mov rdx, [r15 + 40]; &net->biasesErr[0];  	vec* biasesErr;		+ 40
+		mov r9, r13; r9 = l
+		shl r9, 4  ; r9 = l * sizeof(vec); sizeof(vec) = 16 = 1000b
+		add rdx, r9; ; &net->biasesErr[l]
+
+		mov r8 , rdx; &net->biasesErr[l]
 		call scalevec_asm ;	scalevec_asm(rate, &net->biasesErr[l], &net->biasesErr[l]); // Use Err as temp storage
 	;
 	;	// Skip input error calc
@@ -642,21 +685,52 @@ bwd_asm proc											; struct mlp {
 		cmp r13, r8;	if (l > 0) {
 		jng skip_input_error_calc
 	;		// eps_l = W_l^T rho_l
-			mov rcx, ; TODO
+			mov rcx, [r15 + 24]; &net->weights[0];  	mat* weights;		+ 24
+			mov r9, r13; r9 = l
+			shl r9, 3  ; r9 = l* sizeof(mat); sizeof(mat) = 24 = 1100b = 1000b + 100b
+			add rcx, r9; &net->weights[l]
+			shl r9, 1  ; r9 = l* sizeof(mat); sizeof(mat) = 24 = 1100b = 1000b + 100b
+			add rcx, r9; &net->weights[l]
+
 			mov rdx, r14 ; &rho
-			mov r8 , ; TODO
-			call matTdotvec_asm ;		matTdotvec_asm(&net->weights[l], &rho, &net->layersErr[l]);
+
+			mov r8, [r15 + 32]; &net->layersErr[0];  	vec* layersErr;		+ 32
+			mov r9, r13; r9 = l
+			shl r9, 4  ; r9 = l  * sizeof(vec); sizeof(vec) = 16 = 1000b
+			add r8, r9; &net->layersErr[l]
+			call matTdotvec_asm ; matTdotvec_asm(&net->weights[l], &rho, &net->layersErr[l]);
 		skip_input_error_calc:
 	;	}
 	;
 	;	// update weights by learning rate
-		mov rcx, ; TODO &net->biases[l]
-		mov rdx, ; TODO &net->biasesErr[l]
+		mov rcx, [r15 + 16]; &net->biases[0];  	vec* biases;		+ 16
+		mov r9, r13; r9 = l
+		shl r9, 4  ; r9 = l * sizeof(vec); sizeof(vec) = 16 = 1000b
+		add rcx, r9; &net->biases[l]
+		
+		mov rdx, [r15 + 40]; &net->biasesErr[0];  	vec* biasesErr;		+ 40
+		mov r9, r13; r9 = l
+		shl r9, 4  ; r9 = l * sizeof(vec); sizeof(vec) = 16 = 1000b
+		add rdx, r9; ; &net->biasesErr[l]
+
+
 		mov r8 , rcx; &net->biases[l]
 		call subvec_asm ;	subvec_asm(&net->biases[l], &net->biasesErr[l], &net->biases[l]);
 
-		mov rcx, ; TODO &net->weights[l]
-		mov rdx, ; TODO &net->weightsErr[l]
+		mov rcx, [r15 + 24]; &net->weights[0];  	mat* weights;		+ 24
+		mov r9, r13; r9 = l
+		shl r9, 3  ; r9 = l* sizeof(mat); sizeof(mat) = 24 = 1100b = 1000b + 100b
+		add rcx, r9; &net->weights[l]
+		shl r9, 1  ; r9 = l* sizeof(mat); sizeof(mat) = 24 = 1100b = 1000b + 100b
+		add rcx, r9; &net->weights[l]
+
+		mov rdx, [r15 + 48]; &net->weightsErr[0];  	mat* weightsErr;		+ 48
+		mov r9, r13; r9 = l
+		shl r9, 3  ; sizeof(mat) = 24 = 1100b = 1000b + 100b
+		add rdx, r9;
+		shl r9, 1  ; r9 = l * sizeof(mat); sizeof(mat) = 24 = 1100b = 1000b + 100b
+		add rdx, r9; &net->weightsErr[l]
+
 		mov r8 , rcx; &net->weights[l]
 		call submat_asm ;	submat_asm(&net->weights[l], &net->weightsErr[l], &net->weights[l]);
 	
@@ -670,6 +744,8 @@ bwd_asm proc											; struct mlp {
 	;}
 
 	add rsp, 16; move sizeof(vec) = 16 bytes
+
+	pop rbx
 	pop r15
 	pop r14
 	pop r13
