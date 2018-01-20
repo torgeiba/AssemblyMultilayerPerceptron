@@ -267,7 +267,8 @@ void train(mlp* net, mat inputs, mat outputs)
 			int idx = rand() % size;
 			input.data = inputs.data[idx];
 			output.data = outputs.data[idx];
-			learn(net, input, output);
+			//learn(net, input, output);
+			learn_asm(net, &input, &output);
 			//printvec(net->layers[net->numlayers - 1]);
 			//printf(", ");
 			i++;

@@ -146,7 +146,7 @@ makemlp_asm endp
 ;  	mat* weightsErr;	+ 48
 ;
 ;  	float learningrate; + 56 ; note!
-;  	uint64 numepochs;   + 60 ; prev was 4 byte float
+;  	uint64 numepochs;   + 64 ; prev was 4 byte float
 ;  };
 freemlp_asm proc
 
@@ -392,7 +392,7 @@ transfer_asm proc
 	;  	mat* weightsErr;	+ 48
 	;
 	;  	float learningrate; + 56 ; note!
-	;  	uint64 numepochs;   + 60 ; prev was 4 byte float
+	;  	uint64 numepochs;   + 64 ; prev was 4 byte float
 	;  };
 
 
@@ -526,8 +526,8 @@ bwd_asm proc											; struct mlp {
 														;  	vec* biasesErr;		+ 40
 	mov r15, rcx ; r15 = &net							;  	mat* weightsErr;	+ 48
 	;uint64 L = net->numlayers - 1ULL;(+0)				;
-	mov r12, [r15 + 0]									;  	float learningrate; + 56 ; note!
-	dec r12												;  	uint64 numepochs;   + 60 ; prev was 4 byte float
+	mov r12, [r15 + 0]									;  	float learningrate; + 56 ; note! beware of possible padding! TODO: Check this
+	dec r12												;  	uint64 numepochs;   + 64 ; prev was 4 byte float (?)
 														;  };
 	xor rbx, rbx
 	mov ebx, dword ptr [r15 + 56] ; float rate = net->learningrate;	(+56)
@@ -547,8 +547,9 @@ bwd_asm proc											; struct mlp {
 	call subvec_asm ; subvec_asm(&net->layers[L], &output, &net->layersErr[L]); // dE/dx_L = eps_L = x_L - y
 
 	; vec rho ; 'Allocate' on stack
-	mov r14, rsp ; r14 = &rho
+	; TODO: POSSIBLE ERROR: THIS SHOULD SUB BEFORE MOV
 	sub rsp, 16; move sizeof(vec) = 16 bytes
+	mov r14, rsp ; r14 = &rho
 	
 	mov r13, r12 ;uint64 l = L;
 
@@ -809,7 +810,7 @@ train_asm proc
 	mov [r13 + 8], r9
 
 	; r14 = e = net->numepochs
-	mov r14, [rcx + 60] ;  	uint64 numepochs;   + 60
+	mov r14, [rcx + 64] ;  	uint64 numepochs;   + 64
 	epoch_iterations: ; while (e > 0) {
 		mov r15, [rdx + 8]; 	uint64 i = size; inputs.rows
 		trainingset_iterations: ; 	while (i > 0)
@@ -819,34 +820,42 @@ train_asm proc
 		; so volatile regs do not have to be pushed and popped
 
 		; prep to call rand_asm
-		push rcx
 		push rdx
-		push r8						; 	{
+		push r8
+		push rcx
+									; 	{
 	
 		call rand_asm				; 		int idx = rand() % size;
 	
-		mov r10, [rcx + 8]
-		div r10						;		rdx	= idx
-		mov r9, rdx					;		r9  = idx
-
+		pop rcx
 		pop r8
 		pop rdx
-		pop rcx
+		
+		push rdx
+		mov r10, [rdx + 8]			;		r10 = size
+		xor rdx, rdx				;		div is performed on rdx:rax, so need to clear rdx before div
+		div r10						;		rdx	= idx
+		mov r9, rdx					;		r9  = idx
+		pop rdx
+
 		
 		; prep to call learn_asm
 		push rcx
 		push rdx
 		push r8
 
-		mov r10, [rdx]			;		&inputs.data[0]
-		mov r11, [r8]			;		&output.data[0]
+		mov r10, [rdx]			;		(vec*)&inputs.data[0]
+		mov r11, [r8]			;		(vec*)&output.data[0]
 		shl r9, 3				;		multiply index by pointer size(8) to get offsets
 
 		add r10, r9
 		add r11, r9
 		
+		mov r10, [r10]			; r10  = inputs.data[idx]
+		mov r11, [r11]			; r11 = outputs.data[idx];
+
 		mov [r12], r10			; 		input.data  = inputs.data[idx];
-		mov [r12], r10			; 		output.data = outputs.data[idx];
+		mov [r13], r11			; 		output.data = outputs.data[idx];
 
 								; first param mlp* net already in rcx
 		mov rdx, r12			; second param input

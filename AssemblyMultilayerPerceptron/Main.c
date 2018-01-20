@@ -48,7 +48,8 @@ int main(int argc, char** argv)
 	}
 	////////////////////
 	
-	train(nn, inputs, outputs);
+	//train(nn, inputs, outputs);
+	train_asm(nn, &inputs, &outputs);
 
 	printmlp(nn);
 	printoutputs(nn, inputs);
