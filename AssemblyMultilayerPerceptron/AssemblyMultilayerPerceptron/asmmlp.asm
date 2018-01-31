@@ -124,16 +124,18 @@ makemlp_asm proc	; struct mlp {
 	push rdx
 	push r8
 	sub rsp, 4;
-	movd rcx, xmm3
-	mov [rsp], rcx
+	movd ecx, xmm3
+	mov [rsp], ecx
 
 	; mlp* result = malloc(sizeof(mlp));												
-	mov rcx, 72; sizeof(mlp) = 72						
-	call malloc_asm ;								
+	mov rcx, 72; sizeof(mlp) = 72	
+	sub rsp, 32	; shadow space				
+	call malloc_asm ;					
+	add rsp, 32
 	mov r15, rax ; r15 = mlp* result / net; 			
 
-	mov rcx, [rsp]
-	movd xmm3, rcx
+	mov ecx, [rsp]
+	movd xmm3, ecx
 	add rsp, 4;
 	pop rdx
 	pop r8
@@ -155,13 +157,17 @@ makemlp_asm proc	; struct mlp {
 	; result->layers = (vec*)malloc(numlayers * sizeof(vec));
 	mov rcx, r13; numlayers
 	shl rcx, 4  ; * sizeof(vec)
+	sub rsp, 32	; shadow space
 	call malloc_asm ;
+	add rsp, 32	; shadow space
 	mov [r15 + 8], rax;	+offset(mlp, layers)							
 																		
 	; result->layersErr = (vec*)malloc(numlayers * sizeof(vec));		
 	mov rcx, r13; numlayers
 	shl rcx, 4  ; * sizeof(vec)													
+	sub rsp, 32	; shadow space
 	call malloc_asm ;
+	add rsp, 32	; shadow space
 	mov [r15 + 32], rax; +offset(mlp, layersErr)
 																		
 	; result->weights = (mat*)malloc(numweights * sizeof(mat));			
@@ -171,7 +177,9 @@ makemlp_asm proc	; struct mlp {
 	add rcx, r13; + numlayers
 	dec rcx		; numweights = numlayers - 1
 	shl rcx, 3  ; * 8 = (numweights*3) * 8 = numweights * sizeof(mat)													
+	sub rsp, 32	; shadow space
 	call malloc_asm ;
+	add rsp, 32	; shadow space
 	mov [r15 + 24], rax;	+offset(mlp, weights)												
 																		
 	; result->weightsErr = (mat*)malloc(numweights * sizeof(mat));		
@@ -181,21 +189,27 @@ makemlp_asm proc	; struct mlp {
 	add rcx, r13; + numlayers
 	dec rcx		; numweights = numlayers - 1
 	shl rcx, 3  ; * 8 = (numweights*3) * 8 = numweights * sizeof(mat)													
+	sub rsp, 32	; shadow space
 	call malloc_asm ;
+	add rsp, 32	; shadow space
 	mov [r15 + 48], rax;	+offset(mlp, weightsErr)												
 												
 	; result->biases = (vec*)malloc(numweights * sizeof(vec));			
 	mov rcx, r13; numlayers
 	dec rcx		; numweights = numlayers - 1
 	shl rcx, 4  ; * sizeof(vec)
+	sub rsp, 32	; shadow space
 	call malloc_asm ;
+	add rsp, 32	; shadow space
 	mov [r15 + 16], rax;	+offset(mlp, biases)
 
 	; result->biasesErr = (vec*)malloc(numweights * sizeof(vec));
 	mov rcx, r13; numlayers
 	dec rcx		; numweights = numlayers - 1
 	shl rcx, 4  ; * sizeof(vec)
+	sub rsp, 32	; shadow space
 	call malloc_asm ;
+	add rsp, 32	; shadow space
 	mov [r15 + 40], rax;	+offset(mlp, biasesErr)
 
 	; uint64 l = 0;
@@ -209,6 +223,7 @@ makemlp_asm proc	; struct mlp {
 		mov rdx, r12; layersizes[l]
 		shl rdx, 3  ; sizeof(unint64) = 8 byte = 2^3 = 1 << 3
 		add rdx, rbx; += &layersizes[0]
+		mov rdx, [rdx]
 		call veczeros_asm ; result->layers[l] = veczeros_asm(layersizes[l]);
 		
 		mov rcx, r12; Hidden return param &result->layersErr[l]
@@ -218,6 +233,7 @@ makemlp_asm proc	; struct mlp {
 		mov rdx, r12; layersizes[l]
 		shl rdx, 3  ; sizeof(unint64) = 8 byte = 2^3 = 1 << 3
 		add rdx, rbx; += &layersizes[0]
+		mov rdx, [rdx]
 		call veczeros_asm ; result->layersErr[l] = veczeros_asm(layersizes[l]);
 	
 	inc r12; 	l++
@@ -239,10 +255,12 @@ makemlp_asm proc	; struct mlp {
 		inc rdx;
 		shl rdx, 3; sizeof(uint64) = 8 bit = 2^3 = 1 << 3
 		add rdx, rbx; = (w+1) * sizeof(uint64) + &layersizes[0]
+		mov rdx, [rdx]
 		
 		mov r8,  r12; layersizes[w]
 		shl r8, 3; sizeof(uint64) = 8 byte = 2^3 = 1 << 3
 		add r8, rbx; = w * sizeof(uint64) + &layersizes[0]
+		mov r8, [r8]
 		; 	mat m = matrand_asm(layersizes[w + 1], layersizes[w]);
 		call matrand_asm ;
 
@@ -257,7 +275,7 @@ makemlp_asm proc	; struct mlp {
 		mov rcx, 3Fh
 		movd xmm0, rcx; 0.5f (IEEE single precision) literal
 		mov rdx, rsp; &m1
-		mov rcx, rdx; &m1
+		mov r8, rdx; &m1
 		call scalemat_asm ; 	scalemat_asm(.5f, &m1, &m1);
 
 		mov rcx, r14; &m
@@ -296,10 +314,12 @@ makemlp_asm proc	; struct mlp {
 		inc rdx;
 		shl rdx, 3; sizeof(uint64) = 8 byte = 2^3 = 1 << 3
 		add rdx, rbx; = (w+1) * sizeof(uint64) + &layersizes[0]
+		mov rdx, [rdx]
 		
 		mov r8,  r12; layersizes[w]
 		shl r8, 3; sizeof(uint64) = 8 byte = 2^3 = 1 << 3
 		add r8, rbx; = w * sizeof(uint64) + &layersizes[0]
+		mov r8, [r8]
 		call matzeros_asm ;
 
 		mov rcx, rsp; &m1
@@ -318,6 +338,7 @@ makemlp_asm proc	; struct mlp {
 		inc rdx;
 		shl rdx, 3; sizeof(uint64) = 8 byte = 2^3 = 1 << 3
 		add rdx, rbx; = (w+1) * sizeof(uint64) + &layersizes[0]
+		mov rdx, [rdx]
 		call vecrand_asm
 
 		; 	vec v1 = vecones_asm(v.size);
@@ -328,7 +349,7 @@ makemlp_asm proc	; struct mlp {
 		mov rcx, 3Fh
 		movd xmm0, rcx; 0.5f (IEEE single precision) literal
 		mov rdx, rsp; &v1
-		mov rcx, rdx; &v1
+		mov r8, rdx; &v1
 		call scalevec_asm ; 	scalevec_asm(.5f, &v1, &v1);
 
 		mov rcx, r14; &v
@@ -361,6 +382,7 @@ makemlp_asm proc	; struct mlp {
 		inc rdx;
 		shl rdx, 3; sizeof(uint64) = 8 byte = 2^3 = 1 << 3
 		add rdx, rbx; = (w+1) * sizeof(uint64) + &layersizes[0]
+		mov rdx, [rdx]
 		call veczeros_asm
 
 		mov rcx, rsp; &v1

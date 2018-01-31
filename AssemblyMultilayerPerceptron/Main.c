@@ -23,7 +23,8 @@ int main(int argc, char** argv)
 	printf("Using random seed %d.\n\n", randseed);
 
 	uint64 sizes[4] = { 1, 5, 10, 1 };
-	mlp* nn = makemlp(4, sizes, 0.2f, 800);
+	//mlp* nn = makemlp(4, sizes, 0.2f, 800);
+	mlp* nn = makemlp_asm(4, sizes, 800, 0.2f); // note argument switch for the two last arguments!
 
 	printmlp(nn);
 
