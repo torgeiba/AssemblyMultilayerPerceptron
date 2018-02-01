@@ -120,12 +120,12 @@ makemlp_asm proc	; struct mlp {
 	mov rbx, rdx ; rbx = layersizes&[0]
 
 	; push arguments until after mlp malloc call
-	push rcx
-	push rdx
-	push r8
-	sub rsp, 4;
-	movd ecx, xmm3
-	mov [rsp], ecx
+	push rcx	   ; pop numlayers
+	push rdx	   ; pop layersizes ; (not used)
+	push r8		   ; pop num epochs
+	sub rsp, 4     ; push learningrate 1
+	movd ecx, xmm3 ; push learningrate 2
+	mov [rsp], ecx ; push learningrate 3
 
 	; mlp* result = malloc(sizeof(mlp));												
 	mov rcx, 72; sizeof(mlp) = 72	
@@ -134,12 +134,12 @@ makemlp_asm proc	; struct mlp {
 	add rsp, 32
 	mov r15, rax ; r15 = mlp* result / net; 			
 
-	mov ecx, [rsp]
-	movd xmm3, ecx
-	add rsp, 4;
-	pop rdx
-	pop r8
-	pop rcx
+	mov ecx, [rsp]  ; pop learningrate 3
+	movd xmm3, ecx  ; pop learningrate 2
+	add rsp, 4		; pop learningrate 1
+	pop r8			; pop num epochs
+	pop rdx			; pop layersizes ; (not used)
+	pop rcx			; pop numlayers
 
 	mov r13, rcx; r13 = numlayers 	; uint64 numweights = numlayers - 1;
 
@@ -224,7 +224,9 @@ makemlp_asm proc	; struct mlp {
 		shl rdx, 3  ; sizeof(unint64) = 8 byte = 2^3 = 1 << 3
 		add rdx, rbx; += &layersizes[0]
 		mov rdx, [rdx]
+		sub rsp, 32	; shadow space
 		call veczeros_asm ; result->layers[l] = veczeros_asm(layersizes[l]);
+		add rsp, 32	; shadow space
 		
 		mov rcx, r12; Hidden return param &result->layersErr[l]
 		shl rcx, 4  ; sizeof(vec) = 16 byte = 2^4 = 1 << 4
@@ -234,7 +236,9 @@ makemlp_asm proc	; struct mlp {
 		shl rdx, 3  ; sizeof(unint64) = 8 byte = 2^3 = 1 << 3
 		add rdx, rbx; += &layersizes[0]
 		mov rdx, [rdx]
+		sub rsp, 32	; shadow space
 		call veczeros_asm ; result->layersErr[l] = veczeros_asm(layersizes[l]);
+		add rsp, 32	; shadow space
 	
 	inc r12; 	l++
 	cmp r12, r13; (l < numlayers)
@@ -262,7 +266,9 @@ makemlp_asm proc	; struct mlp {
 		add r8, rbx; = w * sizeof(uint64) + &layersizes[0]
 		mov r8, [r8]
 		; 	mat m = matrand_asm(layersizes[w + 1], layersizes[w]);
+		sub rsp, 32	; shadow space
 		call matrand_asm ;
+		add rsp, 32	; shadow space
 
 
 		; 	mat m1 = matones_asm(m.rows, m.cols);
@@ -270,20 +276,26 @@ makemlp_asm proc	; struct mlp {
 		mov rcx, rsp ; Hidden return variable &m1
 		mov rdx, [r14 + 8]; m.rows
 		mov r8, [r14 + 16]; m.cols
+		sub rsp, 32	; shadow space
 		call matones_asm ; 
+		add rsp, 32	; shadow space
 
-		mov rcx, 3Fh
+		mov rcx, 3F000000h
 		movd xmm0, rcx; 0.5f (IEEE single precision) literal
 		mov rdx, rsp; &m1
 		mov r8, rdx; &m1
+		sub rsp, 32	; shadow space
 		call scalemat_asm ; 	scalemat_asm(.5f, &m1, &m1);
+		add rsp, 32	; shadow space
 
 		mov rcx, r14; &m
 		mov rdx, rsp; &m1
 		mov r8 , rcx; &m
+		sub rsp, 32	; shadow space
 		call submat_asm ; 	submat_asm(&m, &m1, &m);
+		add rsp, 32	; shadow space
 
-
+		
 		; 	result->weights[w] = m;
 		; r14 = &m
 		; mov data, rows, cols
@@ -292,8 +304,11 @@ makemlp_asm proc	; struct mlp {
 		add rdx, r12
 		shl rdx, 3 ; rdx = sizeof(mat) * w
 
-		add rdx, r15; += &mlp
-		add rdx, 24 ; += offsetof(result,weights); rdx = &result->weights[w]
+		; TODO: Check possible error, should add value *at* mlp+24, i.e [mlp +24], not mlp+24 itself.
+		; old ; add rdx, r15; += &mlp
+		; old ; add rdx, 24 ; += offsetof(result,weights); rdx = &result->weights[w]
+		add rdx, [r15+24]; fix
+
 
 		mov rcx, [r14 + 0]; m.data (+0)
 		mov [rdx + 0], rcx; result->weights[w].data(+0)
@@ -307,8 +322,10 @@ makemlp_asm proc	; struct mlp {
 		shl rcx, 1
 		add rcx, r12
 		shl rcx, 3
-		add rcx, r15; += &mlp
-		add rcx, 48; += offsetof(mlp, weightsErr) ;(+48); hidden return parameter &result->weightsErr[w]
+		;old; add rcx, r15; += &mlp
+		;old; add rcx, 48; += offsetof(mlp, weightsErr) ;(+48); hidden return parameter &result->weightsErr[w]
+		add rcx, [r15+48]; fix
+
 
 		mov rdx, r12; layersizes[w+1]
 		inc rdx;
@@ -320,10 +337,14 @@ makemlp_asm proc	; struct mlp {
 		shl r8, 3; sizeof(uint64) = 8 byte = 2^3 = 1 << 3
 		add r8, rbx; = w * sizeof(uint64) + &layersizes[0]
 		mov r8, [r8]
+		sub rsp, 32	; shadow space
 		call matzeros_asm ;
+		add rsp, 32	; shadow space
 
 		mov rcx, rsp; &m1
+		sub rsp, 32	; shadow space
 		call matfree_asm ; 	matfree_asm(&m1);
+		add rsp, 32	; shadow space
 
 		add rsp, 24 ; dealloc m1
 		add rsp, 24 ; dealloc m
@@ -339,14 +360,18 @@ makemlp_asm proc	; struct mlp {
 		shl rdx, 3; sizeof(uint64) = 8 byte = 2^3 = 1 << 3
 		add rdx, rbx; = (w+1) * sizeof(uint64) + &layersizes[0]
 		mov rdx, [rdx]
+		sub rsp, 32	; shadow space
 		call vecrand_asm
+		add rsp, 32	; shadow space
 
 		; 	vec v1 = vecones_asm(v.size);
 		mov rdx, [r14 + 8]; v.size
 		mov rcx, rsp ; hidden return parameter &v1
+		sub rsp, 32	; shadow space
 		call vecones_asm
+		add rsp, 32	; shadow space
 
-		mov rcx, 3Fh
+		mov rcx, 3F000000h
 		movd xmm0, rcx; 0.5f (IEEE single precision) literal
 		mov rdx, rsp; &v1
 		mov r8, rdx; &v1
@@ -362,31 +387,36 @@ makemlp_asm proc	; struct mlp {
 		; mov data, size
 		mov rdx, r12
 		shl rdx, 4 ; rdx = sizeof(vec) * w
-		add rdx, r15; rdx += &mlp
-		add rdx, 16 ; += offsetof(result,biases); rdx = &result->biases[w]
+		;old; add rdx, r15; rdx += &mlp
+		;old; add rdx, 16 ; += offsetof(result,biases); rdx = &result->biases[w]
+		add rdx, [r15 + 16]; fix
 
-		mov rcx, [r14 + 0]; m.data (+0)
+		mov rcx, [r14 + 0]; v.data (+0)
 		mov [rdx + 0], rcx; result->biases[w].data(+0)
-		mov rcx, [r14 + 8]; m.size (+8)
+		mov rcx, [r14 + 8]; v.size (+8)
 		mov [rdx + 8], rcx ; result->biases[w].size (+8)
 
 
 		; 	result->biasesErr[w] = veczeros_asm(layersizes[w + 1]);
 		mov rcx, r12 ; w
-		inc rcx      ; w + 1
 		shl rcx, 4   ; (w+1) * sizeof(vec) ; (16 byte  = 1 << 4)
-		add rcx, r15; += &mlp
-		add rcx, 40; += offsetof(mlp, biaserr) (+40); rcx = hidden return parameter &(result->biasesErr[w])
+		;old;add rcx, r15 ; += &mlp
+		;old;add rcx, 40  ; += offsetof(mlp, biaserr) (+40); rcx = hidden return parameter &(result->biasesErr[w])
+		add rcx, [r15+40]; fix
 
 		mov rdx, r12; layersizes[w+1]
 		inc rdx;
 		shl rdx, 3; sizeof(uint64) = 8 byte = 2^3 = 1 << 3
 		add rdx, rbx; = (w+1) * sizeof(uint64) + &layersizes[0]
 		mov rdx, [rdx]
+		sub rsp, 32	; shadow space
 		call veczeros_asm
+		add rsp, 32	; shadow space
 
 		mov rcx, rsp; &v1
+		sub rsp, 32	; shadow space
 		call vecfree_asm ; 	vecfree_asm(&v1);
+		add rsp, 32	; shadow space
  
 		add rsp, 32 ; dealloc v, v1
 		
