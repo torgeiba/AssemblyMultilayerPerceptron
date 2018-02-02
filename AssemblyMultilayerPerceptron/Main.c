@@ -6,9 +6,9 @@
 
 float target_function(float x)
 {
-	return sinf(x) + 0.f*0.025f * cosf(28*x);
-	//return sinf(x) + 0.025 * cosf(28 * x);
-	//return x < 0.f ? -1.f : 1.f;
+	return sinf(x) + 0.f * 0.025f * cosf(28 * x);
+	// return sinf(x) + 0.025 * cosf(28 * x);
+	// return x < 0.f ? -1.f : 1.f;
 }
 
 int main(int argc, char** argv)

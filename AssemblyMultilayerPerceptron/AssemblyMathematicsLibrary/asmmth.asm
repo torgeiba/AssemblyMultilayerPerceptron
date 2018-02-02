@@ -55,10 +55,47 @@ extern exp_asm:proc    ; exponential function from C math.h implementation
 extern malloc_asm:proc ; dynamic memory allocation on the heap from the C standard library implementation
 extern calloc_asm:proc ; dynamic zero-initialized memory allocation on the heap from the C standard library implementation
 extern free_asm:proc   ; freeing dynamically allocated heap memory, as implemented in the C standard library
-extern rand_asm:proc   ; random integer generator function from C stdlib
+;extern rand_asm:proc   ; random integer generator function from C stdlib
 
 .data
+asm_rnd_state qword 7777
+
 .code
+
+; C standard library function replacements:
+
+; void srand_asm(uint64 seed); seeds rand_asm() random number generator by setting global variable
+srand_asm proc
+	mov qword ptr [asm_rnd_state], rcx
+	ret
+srand_asm endp
+
+; int rand_asm(); produces 15 bit random int, corresponding to C-stdlib rand()
+rand_asm proc
+
+	mov rcx, qword ptr [asm_rnd_state]
+	mov rdx, rcx
+	shl rcx, 13
+	xor rdx, rcx
+	shr rdx, 17
+	xor rcx, rdx
+	shl rcx, 5
+	xor rdx, rcx
+
+	mov qword ptr [asm_rnd_state], rdx
+
+	mov rax, 7FFFh
+	and rax, rdx
+
+	ret
+rand_asm endp
+
+
+; End C standard library function replacements.
+
+
+
+
 
 ; Helper procedures
 
