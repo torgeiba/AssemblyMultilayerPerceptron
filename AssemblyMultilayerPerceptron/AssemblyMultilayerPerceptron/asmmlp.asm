@@ -467,13 +467,17 @@ freemlp_asm proc
 		mov rdx, r13
 		shl rdx, 4							; rdx = r13 * 16
 		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->layers[l] ; sizeof(vec) = 16
+		sub rsp, 20h ; allocate shadowspace
 		call vecfree_asm					;	vecfree_asm(&net->layers[l]);
+		add rsp, 20h ; deallocate shadowspace
 
 		mov r14, qword ptr [r12 + 32]		;	r14 = mlp->layersErr
 		mov rdx, r13
 		shl rdx, 4							; rdx = r13 * 16
 		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->layersErr[l] ; sizeof(vec) = 16
+		sub rsp, 20h ; allocate shadowspace
 		call vecfree_asm					;	vecfree_asm(&net->layersErr[l]);
+		add rsp, 20h ; deallocate shadowspace
 
 	dec r13									;	l--;
 	jnz layer_loop							; }
@@ -489,13 +493,17 @@ freemlp_asm proc
 		sub rdx, r13
 		shl rdx, 3							; rdx = r13 * 3 * 8 = rdx * 24
 		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->weightsErr[w]		 ; sizeof(vec) = 24
+		sub rsp, 20h ; allocate shadowspace
 		call matfree_asm					;	matfree_asm(&net->weightsErr[w]);	
+		add rsp, 20h ; deallocate shadowspace
 		
 		mov r14, qword ptr [r12 + 40]		;	r14 = mlp->biasErr
 		mov rdx, r13
 		shl rdx, 4							; rdx = r13 * 16
 		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->biasesErr[w]		; sizeof(vec) = 16
+		sub rsp, 20h ; allocate shadowspace
 		call vecfree_asm					;	vecfree_asm(&net->biasesErr[w]);	
+		add rsp, 20h ; deallocate shadowspace
 		
 		mov r14, qword ptr [r12 + 24]		;	r14 = mlp->weights
 		mov rdx, r13
@@ -503,34 +511,50 @@ freemlp_asm proc
 		sub rdx, r13
 		shl rdx, 3							; rdx = r13 * 3 * 8 = rdx * 24
 		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->weights[w]			; sizeof(vec) = 24
+		sub rsp, 20h ; allocate shadowspace
 		call matfree_asm					;	matfree_asm(&net->weights[w]);
+		add rsp, 20h ; deallocate shadowspace
 		
 		mov r14, qword ptr [r12 + 16]		;	r14 = mlp->bias
 		mov rdx, r13
 		shl rdx, 4							; rdx = r13 * 16
 		lea rcx, qword ptr [r14 + rdx]		;	rcx = &net->biases[w]			; sizeof(vec) = 16
+		sub rsp, 20h ; allocate shadowspace
 		call vecfree_asm					;	vecfree_asm(&net->biases[w]);
+		add rsp, 20h ; deallocate shadowspace
 		
 	dec r13									;	w--;								
 	jnz weight_loop							; }										
 			
-	mov rcx, qword ptr [r12 + 8]	; vec* layers;		+ 8													
+	mov rcx, qword ptr [r12 + 8]	; vec* layers;		+ 8		
+	sub rsp, 20h ; allocate shadowspace
 	call free_asm					; free(net->layers);
+	add rsp, 20h ; deallocate shadowspace											
 	
-	mov rcx, qword ptr [r12 + 32]	; vec* layersErr;		+ 32							
+	mov rcx, qword ptr [r12 + 32]	; vec* layersErr;		+ 32		
+	sub rsp, 20h ; allocate shadowspace
 	call free_asm					; free(net->layersErr);
+	add rsp, 20h ; deallocate shadowspace					
 	
-	mov rcx, qword ptr [r12 + 24]	; mat* weights;		+ 24								
+	mov rcx, qword ptr [r12 + 24]	; mat* weights;		+ 24
+	sub rsp, 20h ; allocate shadowspace
 	call free_asm					; free(net->weights);
+	add rsp, 20h ; deallocate shadowspace								
 	
-	mov rcx, qword ptr [r12 + 48]	; mat* weightsErr;	+ 48				
+	mov rcx, qword ptr [r12 + 48]	; mat* weightsErr;	+ 48
+	sub rsp, 20h ; allocate shadowspace
 	call free_asm					; free(net->weightsErr);
+	add rsp, 20h ; deallocate shadowspace			
 	
 	mov rcx, qword ptr [r12 + 16]	; vec* biases;		+ 16;					
+	sub rsp, 20h ; allocate shadowspace
 	call free_asm					; free(net->biases);
+	add rsp, 20h ; deallocate shadowspace
 
 	mov rcx, qword ptr [r12 + 40]	; vec* biasesErr;		+ 40
+	sub rsp, 20h ; allocate shadowspace
 	call free_asm					; free(net->biasesErr);					
+	add rsp, 20h ; deallocate shadowspace
 											
 	pop r14									
 	pop r13									
@@ -851,7 +875,7 @@ bwd_asm proc											; struct mlp {
 	call subvec_asm ; subvec_asm(&net->layers[L], &output, &net->layersErr[L]); // dE/dx_L = eps_L = x_L - y
 
 	; vec rho ; 'Allocate' on stack
-	; TODO: POSSIBLE ERROR: THIS SHOULD SUB BEFORE MOV
+	; TODO: POSSIBLE ERROR: (THIS SHOULD SUB BEFORE MOV). Nope, its ok
 	sub rsp, 16; move sizeof(vec) = 16 bytes
 	mov r14, rsp ; r14 = &rho
 	
@@ -871,7 +895,9 @@ bwd_asm proc											; struct mlp {
 		shl r9, 4  ; r9 = (l+1) * sizeof(vec); sizeof(vec) = 16 = 1000b
 		add rdx, r9; &net->layers[l + 1]
 		mov rdx, [rdx + 8]; &net->layers[0]->size
+		;sub rsp, 20h; shadow space
 		call vecalloc_asm ;	vec rho = vecalloc_asm(/*hidden return addr  &rho */ net->layers[l + 1].size);
+		;add rsp, 20h; shadow space
 	
 		mov r9, r12 ; r9 = L
 		dec r9      ; r9 = L - 1

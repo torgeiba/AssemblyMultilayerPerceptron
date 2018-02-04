@@ -1,4 +1,5 @@
 #include "asmclib.h"
+#include "windows.h"
 
 #include "math.h"   // expf, sinf, cosf
 #include "stdlib.h" // malloc, calloc, 
@@ -6,9 +7,20 @@
 float exp_asm(float x) { 
 	return expf(x);
 }
-void* malloc_asm(uint64 size) { return malloc(size); }
-void* calloc_asm(uint64 count, uint64 size) { return calloc(count, size); }
-void free_asm(void* block_ptr) { free(block_ptr); }
+void* malloc_asm(uint64 size) {
+	return HeapAlloc(GetProcessHeap(), 0, size);
+	//return malloc(size);
+}
+
+void* calloc_asm(uint64 count, uint64 size) {
+	return HeapAlloc(GetProcessHeap(), 8, size*count); // HEAP_ZERO_MEMORY flag = 0x00000008
+	//return calloc(count, size);
+}
+
+void free_asm(void* block_ptr) {
+	HeapFree(GetProcessHeap(), 0, block_ptr); 
+	//free(block_ptr);
+}
 
 
 

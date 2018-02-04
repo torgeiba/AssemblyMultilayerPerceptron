@@ -6,9 +6,9 @@
 
 float target_function(float x)
 {
-	return sinf(x) + 0.f * 0.025f * cosf(28 * x);
+	//return sinf(x) + 0.f * 0.025f * cosf(28 * x);
 	// return sinf(x) + 0.025 * cosf(28 * x);
-	// return x < 0.f ? -1.f : 1.f;
+	return x < 0.f ? -1.f : 1.f;
 }
 
 int main(int argc, char** argv)
@@ -32,12 +32,12 @@ int main(int argc, char** argv)
 	uint64 inputsize  = 1;
 	uint64 outputsize = 1;
 
-	mat inputs  = matalloc(trainingsize, inputsize);
-	mat outputs = matalloc(trainingsize, outputsize);
+	mat inputs  = matalloc_asm(trainingsize, inputsize);
+	mat outputs = matalloc_asm(trainingsize, outputsize);
 
 	float start = -3.1415f;
 	float stop  =  3.1415f;
-	vec x = linspace(start, stop, trainingsize);
+	vec x = linspace_asm(start, stop, trainingsize);
 
 	// Create inputs / outputs:
 	uint64 i = 0;
@@ -49,15 +49,14 @@ int main(int argc, char** argv)
 	}
 	////////////////////
 	
-	//train(nn, inputs, outputs);
 	train_asm(nn, &inputs, &outputs);
 
 	printmlp(nn);
 	printoutputs(nn, inputs);
 	printerrors(nn, inputs, outputs);
-	vecfree(x);
-	matfree(inputs);
-	matfree(outputs);
+	vecfree_asm(&x);      
+	matfree_asm(&inputs);
+	matfree_asm(&outputs);
 	freemlp_asm(nn);
 
 	getchar();

@@ -441,9 +441,20 @@ linspace_asm proc
 	mov rcx, r9  ; load move count / vector size as first argument
 	mov rdx, 4   ; move bytesize / elementsize to 4 bytes per float as second argument
 
+	push r13 ; 
+	push r14
+	movd r13, xmm1 ; save volatile value (start)
+	movd r14, xmm2 ; save volatile value (end)
+
 	sub rsp, 20h
 	call calloc_asm
 	add rsp, 20h
+
+	
+	movd xmm1, r13 ; retrieve volatile value ( start )
+	movd xmm2, r14 ; retrieve volatile value ( end )
+	pop r14
+	pop r13 ; 
 
 	pop rcx
 
