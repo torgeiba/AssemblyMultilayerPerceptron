@@ -632,7 +632,9 @@ expvec_asm proc
 	pop r14
 	pop r13
 	pop r12
+
 	pop rax ; get result pointer as return value from first rdx push
+
 	ret
 expvec_asm endp
 

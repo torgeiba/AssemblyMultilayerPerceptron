@@ -1,14 +1,15 @@
 #include "ProceduralMultilayerPerceptron\procmlp.h"
 #include "AssemblyMultilayerPerceptron/asmmlp.h"
+#include "AssemblyMathematicsLibrary\asmclib.h"
 #include "math.h"
 #include "stdlib.h"
 #include "stdio.h"
 
 float target_function(float x)
 {
-	//return sinf(x) + 0.f * 0.025f * cosf(28 * x);
+	return sinf(x) + 0.f * 0.025f * cosf(28 * x);
 	// return sinf(x) + 0.025 * cosf(28 * x);
-	return x < 0.f ? -1.f : 1.f;
+	//return x < 0.f ? -1.f : 1.f;
 }
 
 int main(int argc, char** argv)
@@ -58,7 +59,17 @@ int main(int argc, char** argv)
 	matfree_asm(&inputs);
 	matfree_asm(&outputs);
 	freemlp_asm(nn);
+	
+	/* // Test exp_asm
+	uint64 testsize = 100;
+	vec t = linspace_asm(-10., 10., testsize);
+	vec y = vecalloc_asm(testsize);
+	expvec_asm(&t, &y);
+	printvec(y);
 
+	vecfree_asm(&t);
+	vecfree_asm(&y);
+	*/
 	getchar();
 
 	return 0;

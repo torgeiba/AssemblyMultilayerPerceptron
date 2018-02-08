@@ -123,7 +123,7 @@ makemlp_asm proc	; struct mlp {
 	push rcx	   ; pop numlayers
 	push rdx	   ; pop layersizes ; (not used)
 	push r8		   ; pop num epochs
-	sub rsp, 4     ; push learningrate 1
+	sub rsp, 4   ; push learningrate 1 (TODO: align to 16 byte boundary?)
 	movd ecx, xmm3 ; push learningrate 2
 	mov [rsp], ecx ; push learningrate 3
 
@@ -136,7 +136,7 @@ makemlp_asm proc	; struct mlp {
 
 	mov ecx, [rsp]  ; pop learningrate 3
 	movd xmm3, ecx  ; pop learningrate 2
-	add rsp, 4		; pop learningrate 1
+	add rsp, 4		; pop learningrate 1 ; (TODO: align to 16 byte boundary?)
 	pop r8			; pop num epochs
 	pop rdx			; pop layersizes ; (not used)
 	pop rcx			; pop numlayers
