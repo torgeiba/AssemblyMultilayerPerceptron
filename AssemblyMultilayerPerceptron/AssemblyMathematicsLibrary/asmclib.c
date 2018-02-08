@@ -28,7 +28,6 @@ float exp_asm(float x) {
 	double res = fractional_part;
 	return (float)(res);
 }
-#endif
 
 void* malloc_asm(uint64 size) {
 	return HeapAlloc(GetProcessHeap(), 0, size);
@@ -36,13 +35,13 @@ void* malloc_asm(uint64 size) {
 
 void* calloc_asm(uint64 count, uint64 size) {
 	return HeapAlloc(GetProcessHeap(), 8, size*count); // HEAP_ZERO_MEMORY flag = 0x00000008
-
 }
 
 void free_asm(void* block_ptr) {
 	HeapFree(GetProcessHeap(), 0, block_ptr); 
 }
 
+#endif
 
 
 //int rand_asm() { return rand(); }

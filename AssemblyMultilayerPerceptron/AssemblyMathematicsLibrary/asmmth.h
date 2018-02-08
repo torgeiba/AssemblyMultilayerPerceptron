@@ -34,6 +34,10 @@ typedef struct mat mat;
 
 #endif
 
+extern void* malloc_asm(uint64 size);
+extern void* calloc_asm(uint64 count, uint64 size);
+extern void free_asm(void* block_ptr);
+
 /**
 * Basic uninitialized vec memory allocation
 * @param

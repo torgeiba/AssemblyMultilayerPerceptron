@@ -52,10 +52,14 @@
 ; Return values are handled as per the Microsoft x64 convention.
 
 ; extern exp_asm:proc    ; exponential function from C math.h implementation
-extern malloc_asm:proc ; dynamic memory allocation on the heap from the C standard library implementation
-extern calloc_asm:proc ; dynamic zero-initialized memory allocation on the heap from the C standard library implementation
-extern free_asm:proc   ; freeing dynamically allocated heap memory, as implemented in the C standard library
-;extern rand_asm:proc   ; random integer generator function from C stdlib
+; extern malloc_asm:proc ; dynamic memory allocation on the heap from the C standard library implementation
+; extern calloc_asm:proc ; dynamic zero-initialized memory allocation on the heap from the C standard library implementation
+; extern free_asm:proc   ; freeing dynamically allocated heap memory, as implemented in the C standard library
+; extern rand_asm:proc   ; random integer generator function from C stdlib
+
+extern GetProcessHeap:proc
+extern HeapAlloc:proc
+extern HeapFree:proc
 
 .data
 asm_rnd_state qword 7777
@@ -63,6 +67,71 @@ asm_rnd_state qword 7777
 .code
 
 ; C standard library function replacements:
+
+; void* malloc_asm(uint64 size)
+malloc_asm proc
+	; return HeapAlloc(GetProcessHeap(), 0, size);
+	push rcx
+
+	sub rsp, 20h; shadow space
+	call GetProcessHeap
+	add rsp, 20h; shadow space
+
+	mov rcx, rax
+	xor rdx, rdx
+	pop r8
+
+	sub rsp, 20h; shadow space
+	call HeapAlloc
+	add rsp, 20h; shadow space
+
+	ret
+malloc_asm endp
+
+; void* calloc_asm(uint64 count, uint64 size)
+; 
+calloc_asm proc
+	; return HeapAlloc(GetProcessHeap(), 8, size*count); // HEAP_ZERO_MEMORY flag = 0x00000008
+	mov rax, rcx
+	mul rdx
+
+	push rax
+
+	sub rsp, 20h; shadow space
+	call GetProcessHeap
+	add rsp, 20h; shadow space
+
+	mov rcx, rax
+	mov rdx, 8 ; HEAP_ZERO_MEMORY flag = 0x00000008
+	pop r8
+
+	sub rsp, 20h; shadow space
+	call HeapAlloc
+	add rsp, 20h; shadow space
+
+	ret
+calloc_asm endp
+
+; void free_asm(void* block_ptr)
+; rcx = block_ptr
+free_asm proc
+	; HeapFree(GetProcessHeap(), 0, block_ptr); 
+	push rcx
+
+	sub rsp, 20h; shadow space
+	call GetProcessHeap
+	add rsp, 20h; shadow space
+
+	mov rcx, rax
+	xor rdx, rdx
+	pop r8
+
+	sub rsp, 20h; shadow space
+	call HeapFree
+	add rsp, 20h; shadow space
+
+	ret
+free_asm endp
 
 ; float exp_asm(float x) {
 ; xmm0 = x
