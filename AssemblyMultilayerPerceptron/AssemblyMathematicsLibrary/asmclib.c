@@ -5,6 +5,7 @@
 #include "windows.h"
 
 // Slow approximation to exp function
+#if 0
 float exp_asm(float x) {
 	int iterations = 50;
 
@@ -27,6 +28,7 @@ float exp_asm(float x) {
 	double res = fractional_part;
 	return (float)(res);
 }
+#endif
 
 void* malloc_asm(uint64 size) {
 	return HeapAlloc(GetProcessHeap(), 0, size);

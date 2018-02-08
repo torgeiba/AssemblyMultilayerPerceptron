@@ -51,7 +51,7 @@
 ; The redundant parameters are removed in the helper procedures.
 ; Return values are handled as per the Microsoft x64 convention.
 
-extern exp_asm:proc    ; exponential function from C math.h implementation
+; extern exp_asm:proc    ; exponential function from C math.h implementation
 extern malloc_asm:proc ; dynamic memory allocation on the heap from the C standard library implementation
 extern calloc_asm:proc ; dynamic zero-initialized memory allocation on the heap from the C standard library implementation
 extern free_asm:proc   ; freeing dynamically allocated heap memory, as implemented in the C standard library
@@ -63,6 +63,31 @@ asm_rnd_state qword 7777
 .code
 
 ; C standard library function replacements:
+
+; float exp_asm(float x) {
+; xmm0 = x
+exp_asm proc
+	; int iterations = 50;
+	cvtss2sd xmm0, xmm0	; double f = x;
+	mov rcx, 1
+	cvtsi2sd xmm1, rcx  ; double y = 1.;
+	movsd xmm2, xmm1
+
+	mov rcx, 50 ; Taylor series approximation. TODO: Cosider computing integer part of exponent as outlined above
+	; for (int n = iterations; n > 0; n--) {
+	exp_loop:
+		; y = 1. + f * (y / (double) n);
+		cvtsi2sd xmm3, rcx; (double)n
+		divpd xmm1, xmm3  ; y / (double) n
+		mulpd xmm1, xmm0  ; f * y / (double) n
+		addpd xmm1, xmm2  ; 1 + f * y / (double) n
+	dec rcx
+	jnz exp_loop
+	; }
+
+	cvtsd2ss xmm0, xmm1 ; return (float)(y);
+	ret
+exp_asm endp
 
 ; void srand_asm(uint64 seed); seeds rand_asm() random number generator by setting global variable
 srand_asm proc
