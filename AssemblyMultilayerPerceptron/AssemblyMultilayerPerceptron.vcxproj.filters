@@ -45,6 +45,9 @@
     <ClCompile Include="mlpbackup.cpp">
       <Filter>Source Files</Filter>
     </ClCompile>
+    <ClCompile Include="MNIST_Main.c">
+      <Filter>Source Files</Filter>
+    </ClCompile>
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="AssemblyMathematicsLibrary\asmmth.h">

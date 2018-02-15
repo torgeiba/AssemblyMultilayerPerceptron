@@ -11,7 +11,7 @@ float target_function(float x)
 	// return sinf(x) + 0.025 * cosf(28 * x);
 	//return x < 0.f ? -1.f : 1.f;
 }
-
+#if 0
 int main(int argc, char** argv)
 {
 	char inseed[10];
@@ -74,3 +74,4 @@ int main(int argc, char** argv)
 
 	return 0;
 }
+#endif 

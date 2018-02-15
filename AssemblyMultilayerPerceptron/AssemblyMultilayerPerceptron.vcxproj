@@ -114,6 +114,7 @@
     <ClCompile Include="AssemblyMathematicsLibrary\asmclib.c" />
     <ClCompile Include="Main.c" />
     <ClCompile Include="mlpbackup.cpp" />
+    <ClCompile Include="MNIST_Main.c" />
     <ClCompile Include="ProceduralMathematicsLibrary\procmth.c" />
     <ClCompile Include="ProceduralMathematicsLibrary\procmthutils.c" />
     <ClCompile Include="ProceduralMultilayerPerceptron\procmlp.c" />
