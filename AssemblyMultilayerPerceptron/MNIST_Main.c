@@ -8,6 +8,9 @@
 char* image_path = "train-images.idx3-ubyte";
 char* label_path = "train-labels.idx1-ubyte";
 
+char* verify_image_path = "t10k-images.idx3-ubyte";
+char* verify_label_path = "t10k-labels.idx1-ubyte";
+
 #pragma warning(disable:4996)
 
 void decimal_to_vec(vec* v, uint8 L)
@@ -75,7 +78,7 @@ mat mnist_read_images(char *path)
 	FILE *fp = fopen(path, "rb");
 	if (fp) {
 		fseek(fp, 0, SEEK_END);          // Jump to the end of the file
-		uint64 filesize = ftell(fp); // Get the current byte offset in the file
+		uint64 filesize = ftell(fp);	 // Get the current byte offset in the file
 		uint8 *buffer = (uint8*)malloc(filesize);
 		rewind(fp);                      // Jump back to the beginning of the file
 		fread(buffer, filesize, 1, fp);
@@ -113,16 +116,20 @@ mat mnist_read_images(char *path)
 
 int main(int argc, char** argv)
 {
+	uint64 numepochs = 1;
+	float learningrate = 0.01f;
 	uint64 sizes[3] = { 784, 100, 10 };
-	mlp* nn = makemlp_asm(3, sizes, 20, 0.01f); // note argument switch for the two last arguments!
+	mlp* nn = makemlp_asm(3, sizes, numepochs, learningrate); // note argument switch for the two last arguments!
 
-	mat inputs = mnist_read_images(image_path); //matalloc_asm(trainingsize, inputsize);
-	mat outputs = mnist_read_labels(label_path); //matalloc_asm(trainingsize, outputsize);
+	mat inputs = mnist_read_images(image_path);  // matalloc_asm(trainingsize, inputsize);
+	mat outputs = mnist_read_labels(label_path); // matalloc_asm(trainingsize, outputsize);
 
 	train_asm(nn, &inputs, &outputs);
 
-
 	// Verify training and print results :
+
+	mat verify_inputs = mnist_read_images(verify_image_path);
+	mat verify_outputs = mnist_read_labels(verify_label_path);
 
 	uint32 passed = 0;
 	uint32 failed = 0;
@@ -132,10 +139,10 @@ int main(int argc, char** argv)
 	v.size = 28 * 28;
 	vec w;
 	w.size = 10;
-	for (uint32 i = 0; i < inputs.rows; i++)
+	for (uint32 i = 0; i < verify_inputs.rows; i++)
 	{
-		v.data = inputs.data[i];
-		w.data = outputs.data[i];
+		v.data = verify_inputs.data[i];
+		w.data = verify_outputs.data[i];
 		fwd_asm(nn, &v);
 		uint32 result = vec_to_decimal(&nn->layers[2]);
 		uint32 answer = vec_to_decimal(&w);
@@ -165,6 +172,10 @@ int main(int argc, char** argv)
 
 	matfree_asm(&inputs);
 	matfree_asm(&outputs);
+
+	matfree_asm(&verify_inputs);
+	matfree_asm(&verify_outputs);
+
 	freemlp_asm(nn);
 	getchar();
 

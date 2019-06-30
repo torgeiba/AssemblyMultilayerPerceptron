@@ -43,7 +43,6 @@ void free_asm(void* block_ptr) {
 
 #endif
 
-
 //int rand_asm() { return rand(); }
 /*
 int rand_asm()
